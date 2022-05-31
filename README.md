@@ -6,7 +6,8 @@ This package can be used without ROS, but currently depends on ROS tooling. A mo
 
 #### X-Series Driver Build Status
 
-[![build-galactic](https://github.com/Interbotix/interbotix_xs_driver/actions/workflows/galactic.yaml/badge.svg)](https://github.com/Interbotix/interbotix_xs_driver/actions/workflows/galactic.yaml)
+##### ROS2-Dependent Build Status
+[![build-ros2](https://github.com/Interbotix/interbotix_xs_driver/actions/workflows/ros2.yaml/badge.svg)](https://github.com/Interbotix/interbotix_xs_driver/actions/workflows/ros2.yaml)
 
 ## Installation
 

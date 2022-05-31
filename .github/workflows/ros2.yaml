@@ -1,13 +1,13 @@
-name: build-galactic
+name: build-ros2
 
 on:
   push:
     branches:
-      - galactic
+      - ros2
       - ros2-devel
   pull_request:
     branches:
-      - galactic
+      - ros2
       - ros2-devel
   workflow_dispatch:
 
@@ -16,7 +16,7 @@ defaults:
     shell: bash
 
 jobs:
-  galactic:
+  build-ros2-galactic:
     strategy:
       matrix:
         env:

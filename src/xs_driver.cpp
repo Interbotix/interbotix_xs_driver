@@ -29,6 +29,8 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <mutex>
+#include <thread>
 #include <unordered_map>
 
 #include "interbotix_xs_driver/xs_driver.hpp"
@@ -642,6 +644,7 @@ bool InterbotixDriverXS::robot_get_joint_states(
   std::vector<double> * velocities,
   std::vector<double> * effort)
 {
+  std::lock_guard<std::mutex> guard(_mutex_js);
   for (const auto & joint_name : group_map[name].joint_names) {
     // iterate through each joint in group, reading pos, vel, and eff
     if (positions) {
@@ -664,6 +667,7 @@ bool InterbotixDriverXS::robot_get_joint_state(
   float * velocity,
   float * effort)
 {
+  std::lock_guard<std::mutex> guard(_mutex_js);
   // read pos, vel, and eff for specified joint
   if (position) {
     *position = robot_positions.at(js_index_map[name]);
@@ -1191,6 +1195,10 @@ void InterbotixDriverXS::robot_init_operating_modes()
 
 void InterbotixDriverXS::robot_read_joint_states()
 {
+  std::lock_guard<std::mutex> guard(_mutex_js);
+  robot_positions.clear();
+  robot_velocities.clear();
+  robot_efforts.clear();
   const char * log;
 
   std::vector<int32_t> get_current(all_ptr->joint_num, 0);

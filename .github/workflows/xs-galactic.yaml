@@ -1,4 +1,4 @@
-name: build-xs-galactic
+name: build-galactic
 
 on:
   push:
@@ -16,7 +16,7 @@ defaults:
     shell: bash
 
 jobs:
-  xs-galactic:
+  galactic:
     strategy:
       matrix:
         env:

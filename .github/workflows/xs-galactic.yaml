@@ -23,8 +23,15 @@ jobs:
           - {ROS_DISTRO: galactic, ROS_REPO: main}
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - name: Check out X-Series Driver
+        uses: actions/checkout@v3
         with:
+          path: src
+      - name: Check out DYNAMIXEL Workbench Toolbox
+        uses: actions/checkout@v3
+        with:
+          repository: Interbotix/dynamixel-workbench
+          ref: ros2
           path: src
       - uses: 'ros-industrial/industrial_ci@master'
         env: ${{matrix.env}}

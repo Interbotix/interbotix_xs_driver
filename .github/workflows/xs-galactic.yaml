@@ -1,0 +1,37 @@
+name: build-galactic
+
+on:
+  push:
+    branches:
+      - galactic
+      - ros2-devel
+  pull_request:
+    branches:
+      - galactic
+      - ros2-devel
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  galactic:
+    strategy:
+      matrix:
+        env:
+          - {ROS_DISTRO: galactic, ROS_REPO: main}
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Check out X-Series Driver
+        uses: actions/checkout@v3
+        with:
+          path: src
+      - name: Check out DYNAMIXEL Workbench Toolbox
+        uses: actions/checkout@v3
+        with:
+          repository: Interbotix/dynamixel-workbench
+          ref: ros2
+          path: src
+      - uses: 'ros-industrial/industrial_ci@master'
+        env: ${{matrix.env}}

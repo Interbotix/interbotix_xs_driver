@@ -40,6 +40,7 @@
 #include <vector>
 #include <algorithm>
 #include <memory>
+#include <mutex>
 #include <unordered_map>
 
 #include "yaml-cpp/yaml.h"
@@ -315,6 +316,9 @@ private:
   std::string filepath_mode_configs;
 
   bool write_eeprom_on_startup;
+
+  // Mutex for updating / getting joint states
+  std::mutex _mutex_js;
 
   /// @brief Loads a robot-specific 'motor_configs' yaml file and populates class variables with
   ///   its contents

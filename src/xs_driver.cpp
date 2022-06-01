@@ -26,14 +26,14 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+#include "interbotix_xs_driver/xs_driver.hpp"
+
 #include <string>
 #include <vector>
 #include <memory>
 #include <mutex>
 #include <thread>
 #include <unordered_map>
-
-#include "interbotix_xs_driver/xs_driver.hpp"
 
 namespace interbotix_xs
 {

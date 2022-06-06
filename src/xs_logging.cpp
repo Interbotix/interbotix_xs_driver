@@ -92,7 +92,7 @@ void log(logging::Level level, const char * fmt, ...)
       int needed = vsnprintf(buf, size, fmt, argsTmp);
       va_end(argsTmp);
       if (needed < static_cast<int>(size) - 1 && needed >= 0) {
-        msg.append(buf, (size_t) needed);
+        msg.append(buf, static_cast<size_t>(needed));
         break;
       }
       size = needed >= 0 ? needed + 2 : size * 2;

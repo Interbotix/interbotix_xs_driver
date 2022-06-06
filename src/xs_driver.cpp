@@ -65,6 +65,9 @@ InterbotixDriverXS::InterbotixDriverXS(
       XSLOG_FATAL("Failed to write configurations to all motors. Shutting down...");
       return;
     }
+    XSLOG_INFO(
+      "Writing startup register values to EEPROM. This only needs to be done once on a robot. "
+      "Set `write_eeprom_on_startup` to false from now on.")
   } else {
     XSLOG_INFO("Skipping Load Configs...");
   }

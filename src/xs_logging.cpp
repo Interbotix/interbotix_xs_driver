@@ -46,7 +46,7 @@ namespace interbotix_xs
 namespace logging
 {
 
-#define END "\n\x1B[0m"
+#define END "\x1B[0m\n"
 #define GRN "\x1B[32m"
 #define YLW "\x1B[33m"
 #define RED "\x1B[31m"

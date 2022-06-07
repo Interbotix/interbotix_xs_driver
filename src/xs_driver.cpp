@@ -39,7 +39,6 @@ namespace interbotix_xs
 {
 
 InterbotixDriverXS::InterbotixDriverXS(
-  bool & success,
   std::string filepath_motor_configs,
   std::string filepath_mode_configs,
   bool write_eeprom_on_startup)
@@ -48,22 +47,22 @@ InterbotixDriverXS::InterbotixDriverXS(
     "Using Interbotix X-Series Driver Version: 'v%d.%d.%d'.",
     VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
   if (!robot_retrieve_motor_configs(filepath_motor_configs, filepath_mode_configs)) {
-    return;
+    throw std::runtime_error("Failed due to bad config.");
   }
 
   if (!robot_init_port()) {
-    return;
+    throw std::runtime_error("Failed to open port.");
   }
 
   if (!robot_ping_motors()) {
     XSLOG_FATAL("Failed to find all motors. Shutting down...");
-    return;
+    throw std::runtime_error("Failed to find all motors.");
   }
 
   if (write_eeprom_on_startup) {
     if (!robot_load_motor_configs()) {
       XSLOG_FATAL("Failed to write configurations to all motors. Shutting down...");
-      return;
+      throw std::runtime_error("Failed to write configurations to all motors.");
     }
     XSLOG_INFO(
       "Writing startup register values to EEPROM. This only needs to be done once on a robot. "
@@ -75,7 +74,6 @@ InterbotixDriverXS::InterbotixDriverXS(
   robot_init_controlItems();
   robot_init_workbench_handlers();
   robot_init_operating_modes();
-  success = true;
 }
 
 /// @brief Destructor for the InterbotixDriverXS

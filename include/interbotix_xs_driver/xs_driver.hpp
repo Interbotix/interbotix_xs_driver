@@ -53,8 +53,13 @@ class InterbotixDriverXS
 {
 public:
   /// @brief Constructor for the InterbotixDriverXS
+  /// @param filepath_motor_configs absolute filepah to the motor configuration file
+  /// @param filepath_mode_configs absolute filepah to the modes configuration file
+  /// @param write_eeprom_on_startup whether or not to write configs to EEPROM on startup
+  /// @throws runtime_error if constructor was not initialized properly due to bad configuration
+  ///   file, inability to open specified serial port, inability to ping all specified motors, or
+  ///   inability to write startup configuration to all motors' EEPROMs
   explicit InterbotixDriverXS(
-    bool & success,
     std::string filepath_motor_configs,
     std::string filepath_mode_configs,
     bool write_eeprom_on_startup);

@@ -70,7 +70,7 @@ public:
     std::string logging_level = "INFO");
 
   /// @brief Destructor for the InterbotixDriverXS
-  ~InterbotixDriverXS() {};
+  ~InterbotixDriverXS() {}
 
   /// @brief Set the operating mode for a specific group of motors or a single motor
   /// @param cmd_type set to 'CMD_TYPE_GROUP' if changing the operating mode for a group of motors

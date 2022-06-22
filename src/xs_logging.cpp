@@ -46,7 +46,8 @@ namespace interbotix_xs
 namespace logging
 {
 
-#define END "\x1B[0m\n"
+#define OFF "\x1B[0m"
+#define END OFF "\n"
 #define GRN "\x1B[32m"
 #define YLW "\x1B[33m"
 #define RED "\x1B[31m"
@@ -61,7 +62,8 @@ void log(logging::Level level, const char * fmt, ...)
         msg += "[DEBUG] ";
         break;
       case Level::INFO:
-        msg = "[INFO] ";
+        msg += OFF;
+        msg += "[INFO] ";
         break;
       case Level::WARN:
         msg += YLW;
@@ -108,6 +110,29 @@ void log(logging::Level level, const char * fmt, ...)
 void set_level(Level level)
 {
   _level = level;
+  XSLOG_DEBUG("Set logging level to %d.", level);
+}
+
+void set_level(std::string level)
+{
+  if (level == "DEBUG") {
+    set_level(Level::DEBUG);
+  } else if (level == "INFO") {
+    set_level(Level::INFO);
+  } else if (level == "WARN") {
+    set_level(Level::WARN);
+  } else if (level == "ERROR") {
+    set_level(Level::ERROR);
+  } else if (level == "FATAL") {
+    set_level(Level::FATAL);
+  } else {
+    XSLOG_ERROR("Tried to set an invalid logging level.");
+  }
+}
+
+Level get_level()
+{
+  return _level;
 }
 
 }  // namespace logging

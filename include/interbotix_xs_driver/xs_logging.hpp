@@ -31,23 +31,24 @@
 
 #include <cstdarg>
 #include <cstdio>
+#include <string>
 
 // define logging macros
 #define XSLOG_DEBUG(...) interbotix_xs::logging::log( \
     interbotix_xs::logging::Level::DEBUG, \
-    __VA_ARGS__);
+    __VA_ARGS__)
 #define XSLOG_INFO(...) interbotix_xs::logging::log( \
     interbotix_xs::logging::Level::INFO, \
-    __VA_ARGS__);
+    __VA_ARGS__)
 #define XSLOG_WARN(...) interbotix_xs::logging::log( \
     interbotix_xs::logging::Level::WARN, \
-    __VA_ARGS__);
+    __VA_ARGS__)
 #define XSLOG_ERROR(...) interbotix_xs::logging::log( \
     interbotix_xs::logging::Level::ERROR, \
-    __VA_ARGS__);
+    __VA_ARGS__)
 #define XSLOG_FATAL(...) interbotix_xs::logging::log( \
     interbotix_xs::logging::Level::FATAL, \
-    __VA_ARGS__);
+    __VA_ARGS__)
 
 namespace interbotix_xs
 {
@@ -55,7 +56,7 @@ namespace interbotix_xs
 namespace logging
 {
 
-enum class Level
+enum Level
 {
   DEBUG = 0,
   INFO = 1,
@@ -74,6 +75,14 @@ void log(Level level, const char * fmt, ...);
 /// @brief Set the logging level
 /// @param level the new logging level
 void set_level(Level level);
+
+/// @brief Set the logging level
+/// @param level the new logging level
+void set_level(std::string);
+
+/// @brief Get the logging level
+/// @returns The current logging level
+Level get_level();
 
 }  // namespace logging
 

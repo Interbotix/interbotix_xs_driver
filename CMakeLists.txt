@@ -31,7 +31,7 @@ if(NOT ${PROJECT_NAME}_VERSION MATCHES "[0-9].[0-9].[0-9]")
   message(FATAL_ERROR "Could not parse version from package.xml or version is not formatted properly (should be MAJOR.MINOR.PATCH).")
 endif()
 
-set(PATH_TO_VERSION_TEMPLATE ${PROJECT_SOURCE_DIR}/include/${PROJECT_NAME}/version.hpp.in)
+set(PATH_TO_VERSION_TEMPLATE ${PROJECT_SOURCE_DIR}/cmake/version.hpp.in)
 set(PATH_TO_VERSION_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/include/${PROJECT_NAME}/version.hpp)
 if(NOT EXISTS ${PATH_TO_VERSION_TEMPLATE})
   message(FATAL_ERROR "Could not locate version template file at '${PATH_TO_VERSION_TEMPLATE}'.")

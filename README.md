@@ -35,28 +35,28 @@ colcon build
 
 ## Usage
 
-The X-Series Driver is compiled as a library and can be used in any C++ project by simply including its headers.
+The X-Series Driver is compiled as a library and can be used in any C++ project by simply including its headers and linking against it.
 
 ```c++
 #include "interbotix_xs_driver/xs_logging.hpp"  // Logging macros and utils
 #include "interbotix_xs_driver/xs_common.hpp"   // Common variables and types
-#include "interbotix_xs_driver/xs_driver.hpp"   // InterbotixDriverXS class
+#include "interbotix_xs_driver/xs_driver.hpp"   // The InterbotixDriverXS class
 ```
 
-Then create an InterbotixDriverXS object, providing the following in the order stated:
-- Reference to a `success` boolean, indicating whether or not the object was initialized properly
+Then create an `InterbotixDriverXS` object, providing the following in the order stated:
 - Absolute filepath to the motor configs file
 - Absolute filepath to the mode configs file
 - A boolean indicating whether the Driver should write to the EEPROM on startup
+- A string indicating the driver's logging level containing one of the following: "DEBUG", "INFO", "WARN", "ERROR", "FATAL"
 
 This initialization would look something like below:
 
 ```c++
-std::shared_ptr<InterbotixDriverXS> xs_driver = std::make_shared<InterbotixDriverXS>(
-    success,
-    filepath_motor_configs,
-    filepath_mode_configs,
-    write_eeprom_on_startup);
+std::unique_ptr<InterbotixDriverXS> xs_driver = std::make_unique<InterbotixDriverXS>(
+  filepath_motor_configs,
+  filepath_mode_configs,
+  write_eeprom_on_startup,
+  logging_level);
 ```
 
 See the package's source code for more details.

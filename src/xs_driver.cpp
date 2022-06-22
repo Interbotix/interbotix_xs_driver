@@ -41,46 +41,49 @@ namespace interbotix_xs
 InterbotixDriverXS::InterbotixDriverXS(
   std::string filepath_motor_configs,
   std::string filepath_mode_configs,
-  bool write_eeprom_on_startup)
+  bool write_eeprom_on_startup,
+  std::string logging_level)
 {
   XSLOG_INFO(
     "Using Interbotix X-Series Driver Version: 'v%d.%d.%d'.",
     VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
-  if (!robot_retrieve_motor_configs(filepath_motor_configs, filepath_mode_configs)) {
+  logging::set_level(logging_level);
+  XSLOG_INFO("Using logging level '%s'.", logging_level.c_str());
+  if (!retrieve_motor_configs(filepath_motor_configs, filepath_mode_configs)) {
     throw std::runtime_error("Failed due to bad config.");
   }
 
-  if (!robot_init_port()) {
+  if (!init_port()) {
     throw std::runtime_error("Failed to open port.");
   }
 
-  if (!robot_ping_motors()) {
+  if (!ping_motors()) {
     XSLOG_FATAL("Failed to find all motors. Shutting down...");
     throw std::runtime_error("Failed to find all motors.");
   }
 
   if (write_eeprom_on_startup) {
-    if (!robot_load_motor_configs()) {
+    if (!load_motor_configs()) {
       XSLOG_FATAL("Failed to write configurations to all motors. Shutting down...");
       throw std::runtime_error("Failed to write configurations to all motors.");
     }
-    XSLOG_INFO(
-      "Writing startup register values to EEPROM. This only needs to be done once on a robot. "
-      "Set `write_eeprom_on_startup` to false from now on.")
+    XSLOG_WARN(
+      "Writing startup register values to EEPROM. This only needs to be done once on a robot if "
+      "using a default motor config file, or after a motor config file has been modified. "
+      "Can set `write_eeprom_on_startup` to false from now on.");
   } else {
-    XSLOG_INFO("Skipping Load Configs...");
+    XSLOG_INFO("Skipping Load Configs.");
   }
 
-  robot_init_controlItems();
-  robot_init_workbench_handlers();
-  robot_init_operating_modes();
+  init_controlItems();
+  init_workbench_handlers();
+  init_operating_modes();
+  init_controlItems();
+  XSLOG_INFO("Interbotix X-Series Driver is up!");
 }
 
-/// @brief Destructor for the InterbotixDriverXS
-InterbotixDriverXS::~InterbotixDriverXS() {}
-
-bool InterbotixDriverXS::robot_set_operating_modes(
-  const std::string cmd_type,
+bool InterbotixDriverXS::set_operating_modes(
+  const std::string & cmd_type,
   const std::string & name,
   const std::string & mode,
   const std::string profile_type,
@@ -88,21 +91,25 @@ bool InterbotixDriverXS::robot_set_operating_modes(
   const int32_t profile_acceleration)
 {
   if (cmd_type == cmd_type::GROUP && group_map.count(name) > 0) {
-    for (auto const & joint_name : group_map[name].joint_names) {
-      robot_set_joint_operating_mode(
+    // group case
+    for (auto const & joint_name : get_group_info(name)->joint_names) {
+      set_joint_operating_mode(
         joint_name,
         mode,
         profile_type,
         profile_velocity,
         profile_acceleration);
     }
-    group_map[name].mode = mode;
-    group_map[name].profile_type = profile_type;
+    get_group_info(name)->mode = mode;
+    get_group_info(name)->profile_type = profile_type;
+    get_group_info(name)->profile_velocity = profile_velocity;
+    get_group_info(name)->profile_acceleration = profile_acceleration;
     XSLOG_INFO(
       "The operating mode for the '%s' group was changed to '%s' with profile type '%s'.",
       name.c_str(), mode.c_str(), profile_type.c_str());
   } else if (cmd_type == cmd_type::SINGLE && motor_map.count(name) > 0) {
-    robot_set_joint_operating_mode(
+    // single case
+    set_joint_operating_mode(
       name,
       mode,
       profile_type,
@@ -115,18 +122,20 @@ bool InterbotixDriverXS::robot_set_operating_modes(
     (cmd_type == cmd_type::GROUP && group_map.count(name) == 0) ||
     (cmd_type == cmd_type::SINGLE && motor_map.count(name) == 0))
   {
+    // case where specified joint or group does not exist depending on cmd_type
     XSLOG_ERROR(
       "The '%s' joint/group does not exist. Was it added to the motor config file?",
       name.c_str());
     return false;
   } else {
+    // case where cmd_type is invalid (i.e. not 'group' or 'single')
     XSLOG_ERROR("Invalid command for argument 'cmd_type' while setting operating mode.");
     return false;
   }
   return true;
 }
 
-bool InterbotixDriverXS::robot_set_joint_operating_mode(
+bool InterbotixDriverXS::set_joint_operating_mode(
   const std::string & name,
   const std::string & mode,
   const std::string profile_type,
@@ -143,31 +152,34 @@ bool InterbotixDriverXS::robot_set_joint_operating_mode(
     int32_t drive_mode;
     // read drive mode for each shadow
     dxl_wb.itemRead(motor_map[motor_name].motor_id, "Drive_Mode", &drive_mode);
+    std::bitset<8> drive_mode_bitset_read = drive_mode, drive_mode_bitset_write = drive_mode;
     XSLOG_DEBUG(
-      "ID: %d, read Drive_Mode %d.",
-      motor_map[motor_name].motor_id, drive_mode);
+      "ID: %d, read Drive_Mode [%s].",
+      motor_map[motor_name].motor_id, drive_mode_bitset_read.to_string().c_str());
     // The 2nd (0x04) bit of the Drive_Mode register sets Profile Configuration
     // [0/false]: Velocity-based Profile: Create a Profile based on Velocity
-    // [1/true]: Time-based Profile: Create Profile based on time
-    std::bitset<8> drive_mode_bitset = drive_mode;
+    // [1/true]: Time-based Profile: Create Profile based on Time
     if (profile_type == profile::TIME) {
-      drive_mode_bitset[2] = true;
-    } else if (profile_type == profile::TIME) {
-      drive_mode_bitset[2] = false;
+      drive_mode_bitset_write.set(2);  // turn ON for time profile
+    } else if (profile_type == profile::VELOCITY) {
+      drive_mode_bitset_write.reset(2);  // turn OFF for velocity profile
     }
-
-    // write the correct drive mode based on the profile type
+    // if not correct, write the correct drive mode based on the profile type
     // see https://emanual.robotis.com/docs/en/dxl/x/xm430-w350/#drive-mode for details
-    if (drive_mode <= 1 && profile_type == profile::TIME) {
-      dxl_wb.itemWrite(motor_map[motor_name].motor_id, "Drive_Mode", drive_mode_bitset.to_ulong());
+    if (!drive_mode_bitset_read.test(2) && profile_type == profile::TIME) {
+      // if the 2nd read bit was OFF and profile_type is time, write new Drive_Mode
+      dxl_wb.itemWrite(
+        motor_map[motor_name].motor_id, "Drive_Mode", drive_mode_bitset_write.to_ulong());
       XSLOG_DEBUG(
-        "ID: %d, write Drive_Mode %ld.",
-        motor_map[motor_name].motor_id, drive_mode_bitset.to_ulong());
-    } else if (drive_mode >= 4 && profile_type == profile::VELOCITY) {
-      dxl_wb.itemWrite(motor_map[motor_name].motor_id, "Drive_Mode", drive_mode_bitset.to_ulong());
+        "ID: %d, write Drive_Mode [%s].",
+        motor_map[motor_name].motor_id, drive_mode_bitset_write.to_string().c_str());
+    } else if (drive_mode_bitset_read.test(2) && profile_type == profile::VELOCITY) {
+      // if the 2nd read bit was ON and profile_type is velocity, write new Drive_Mode
+      dxl_wb.itemWrite(
+        motor_map[motor_name].motor_id, "Drive_Mode", drive_mode_bitset_write.to_ulong());
       XSLOG_DEBUG(
-        "ID: %d, write Drive_Mode %ld.",
-        motor_map[motor_name].motor_id, drive_mode_bitset.to_ulong());
+        "ID: %d, write Drive_Mode [%s].",
+        motor_map[motor_name].motor_id, drive_mode_bitset_write.to_string().c_str());
     }
 
     if (mode == mode::POSITION || mode == mode::LINEAR_POSITION) {
@@ -183,7 +195,7 @@ bool InterbotixDriverXS::robot_set_joint_operating_mode(
         "Profile_Acceleration",
         profile_acceleration);
       XSLOG_DEBUG(
-        "ID: %d, set poscontrolmode, pv=%i, pa=%i.",
+        "ID: %d, set mode position, prof_vel=%i, prof_acc=%i.",
         motor_map[motor_name].motor_id, profile_velocity, profile_acceleration);
     } else if (mode == mode::EXT_POSITION) {
       // set ext_position control mode if the mode is ext_position
@@ -199,7 +211,7 @@ bool InterbotixDriverXS::robot_set_joint_operating_mode(
         "Profile_Acceleration",
         profile_acceleration);
       XSLOG_DEBUG(
-        "ID: %d, set extposcontrolmode, pv=%i, pa=%i.",
+        "ID: %d, set mode ext_postition, pv=%i, pa=%i.",
         motor_map[motor_name].motor_id, profile_velocity, profile_acceleration);
     } else if (mode == mode::VELOCITY) {
       // set velocity control mode if the mode is velocity
@@ -211,28 +223,28 @@ bool InterbotixDriverXS::robot_set_joint_operating_mode(
         "Profile_Acceleration",
         profile_acceleration);
       XSLOG_DEBUG(
-        "ID: %d, set velcontrolmode, pa=%i.",
+        "ID: %d, set mode velocity, prof_acc=%i.",
         motor_map[motor_name].motor_id, profile_acceleration);
     } else if (mode == mode::PWM) {
       // set pwm control mode if the mode is pwm
       dxl_wb.setPWMControlMode(
         motor_map[motor_name].motor_id);
       XSLOG_DEBUG(
-        "ID: %d, set pwmcontrolmode.",
+        "ID: %d, set mode pwm.",
         motor_map[motor_name].motor_id);
     } else if (mode == mode::CURRENT) {
       // set current control mode if the mode is current
       dxl_wb.setCurrentControlMode(
         motor_map[motor_name].motor_id);
       XSLOG_DEBUG(
-        "ID: %d, set currentcontrolmode",
+        "ID: %d, set mode current.",
         motor_map[motor_name].motor_id);
     } else if (mode == mode::CURRENT_BASED_POSITION) {
       // set current_based_position control mode if the mode is current_based_position
       dxl_wb.setCurrentBasedPositionControlMode(
         motor_map[motor_name].motor_id);
       XSLOG_DEBUG(
-        "ID: %d, set currentcontrolmode",
+        "ID: %d, set mode current_based_position.",
         motor_map[motor_name].motor_id);
     } else {
       // mode was invalid
@@ -244,6 +256,8 @@ bool InterbotixDriverXS::robot_set_joint_operating_mode(
     // set the mode and profile_type of each servo in the motor map
     motor_map[motor_name].mode = mode;
     motor_map[motor_name].profile_type = profile_type;
+    motor_map[motor_name].profile_velocity = profile_velocity;
+    motor_map[motor_name].profile_acceleration = profile_acceleration;
   }
 
   // torque on all sister servos
@@ -256,14 +270,14 @@ bool InterbotixDriverXS::robot_set_joint_operating_mode(
   return true;
 }
 
-bool InterbotixDriverXS::robot_torque_enable(
+bool InterbotixDriverXS::torque_enable(
   const std::string cmd_type,
   const std::string & name,
   const bool & enable)
 {
   if (cmd_type == cmd_type::GROUP && group_map.count(name) > 0) {
     // group case
-    for (auto const & joint_name : group_map[name].joint_names) {
+    for (auto const & joint_name : get_group_info(name)->joint_names) {
       // torque each servo in group
       dxl_wb.torque(motor_map[joint_name].motor_id, enable);
     }
@@ -303,7 +317,7 @@ bool InterbotixDriverXS::robot_torque_enable(
   return true;
 }
 
-bool InterbotixDriverXS::robot_reboot_motors(
+bool InterbotixDriverXS::reboot_motors(
   const std::string cmd_type,
   const std::string & name,
   const bool & enable,
@@ -312,7 +326,7 @@ bool InterbotixDriverXS::robot_reboot_motors(
   std::vector<std::string> joints_to_torque;
   if (cmd_type == cmd_type::GROUP && group_map.count(name) > 0) {
     // group case
-    for (auto const & joint_name : group_map[name].joint_names) {
+    for (auto const & joint_name : get_group_info(name)->joint_names) {
       // iterate through each joint in group
       if (smart_reboot) {
         // if smart_reboot, find the servos that are in an error status
@@ -365,24 +379,26 @@ bool InterbotixDriverXS::robot_reboot_motors(
   // torque servos in joints_to_torque and their sisters
   for (const auto & joint_name : joints_to_torque) {
     for (const auto & name : sister_map[joint_name]) {
-      robot_torque_enable(cmd_type::SINGLE, name, true);
+      torque_enable(cmd_type::SINGLE, name, true);
     }
   }
   return true;
 }
 
-bool InterbotixDriverXS::robot_write_commands(
+template<typename T>
+bool InterbotixDriverXS::write_commands(
   const std::string & name,
-  std::vector<float> commands)
+  std::vector<T> commands_in)
 {
-  if (commands.size() != group_map[name].joint_num) {
+  std::vector<float> commands(commands_in.begin(), commands_in.end());
+  if (commands.size() != get_group_info(name)->joint_num) {
     XSLOG_ERROR(
       "Number of commands (%ld) does not match the number of joints in group '%s' (%d). "
       "Will not execute.",
-      commands.size(), name.c_str(), group_map[name].joint_num);
+      commands.size(), name.c_str(), get_group_info(name)->joint_num);
     return false;
   }
-  const std::string mode = group_map[name].mode;
+  const std::string mode = get_group_info(name)->mode;
   std::vector<int32_t> dynamixel_commands(commands.size());
   if (
     (mode == mode::POSITION) ||
@@ -394,34 +410,47 @@ bool InterbotixDriverXS::robot_write_commands(
     for (size_t i{0}; i < commands.size(); i++) {
       if (mode == mode::LINEAR_POSITION) {
         // convert from linear position if necessary
-        commands.at(i) = robot_convert_linear_position_to_radian(
-          group_map[name].joint_names.at(i), commands.at(i));
+        commands.at(i) = convert_linear_position_to_radian(
+          get_group_info(name)->joint_names.at(i),
+          commands.at(i));
       }
       // translate from position to command value
       dynamixel_commands[i] = dxl_wb.convertRadian2Value(
-        group_map[name].joint_ids.at(i), commands.at(i));
+        get_group_info(name)->joint_ids.at(i),
+        commands.at(i));
       XSLOG_DEBUG(
         "ID: %d, writing %s command %d.",
-        group_map[name].joint_ids.at(i), mode.c_str(), dynamixel_commands[i]);
+        get_group_info(name)->joint_ids.at(i),
+        mode.c_str(),
+        dynamixel_commands[i]);
     }
     // write position commands
     dxl_wb.syncWrite(
-      SYNC_WRITE_HANDLER_FOR_GOAL_POSITION, group_map[name].joint_ids.data(),
-      group_map[name].joint_num, &dynamixel_commands[0], 1);
+      SYNC_WRITE_HANDLER_FOR_GOAL_POSITION,
+      get_group_info(name)->joint_ids.data(),
+      get_group_info(name)->joint_num,
+      &dynamixel_commands[0],
+      1);
   } else if (mode == mode::VELOCITY) {
     // velocity commands case
     for (size_t i{0}; i < commands.size(); i++) {
       // translate from velocity to command value
       dynamixel_commands[i] = dxl_wb.convertVelocity2Value(
-        group_map[name].joint_ids.at(i), commands.at(i));
+        get_group_info(name)->joint_ids.at(i),
+        commands.at(i));
       XSLOG_DEBUG(
         "ID: %d, writing %s command %d.",
-        group_map[name].joint_ids.at(i), mode.c_str(), dynamixel_commands[i]);
+        get_group_info(name)->joint_ids.at(i),
+        mode.c_str(),
+        dynamixel_commands[i]);
     }
     // write velocity commands
     dxl_wb.syncWrite(
-      SYNC_WRITE_HANDLER_FOR_GOAL_VELOCITY, group_map[name].joint_ids.data(),
-      group_map[name].joint_num, &dynamixel_commands[0], 1);
+      SYNC_WRITE_HANDLER_FOR_GOAL_VELOCITY,
+      get_group_info(name)->joint_ids.data(),
+      get_group_info(name)->joint_num,
+      &dynamixel_commands[0],
+      1);
   } else if (mode == mode::CURRENT) {
     // velocity commands case
     for (size_t i{0}; i < commands.size(); i++) {
@@ -429,24 +458,34 @@ bool InterbotixDriverXS::robot_write_commands(
       dynamixel_commands[i] = dxl_wb.convertCurrent2Value(commands.at(i));
       XSLOG_DEBUG(
         "ID: %d, writing %s command %d.",
-        group_map[name].joint_ids.at(i), mode.c_str(), dynamixel_commands[i]);
+        get_group_info(name)->joint_ids.at(i),
+        mode.c_str(),
+        dynamixel_commands[i]);
     }
     // write velocity commands
     dxl_wb.syncWrite(
-      SYNC_WRITE_HANDLER_FOR_GOAL_CURRENT, group_map[name].joint_ids.data(),
-      group_map[name].joint_num, &dynamixel_commands[0], 1);
+      SYNC_WRITE_HANDLER_FOR_GOAL_CURRENT,
+      get_group_info(name)->joint_ids.data(),
+      get_group_info(name)->joint_num,
+      &dynamixel_commands[0],
+      1);
   } else if (mode == mode::PWM) {
     // pwm commands case, don't need to translate from pwm to value
     for (size_t i{0}; i < commands.size(); i++) {
       dynamixel_commands[i] = int32_t(commands.at(i));
       XSLOG_DEBUG(
         "ID: %d, writing %s command %d.",
-        group_map[name].joint_ids.at(i), mode.c_str(), dynamixel_commands[i]);
+        get_group_info(name)->joint_ids.at(i),
+        mode.c_str(),
+        dynamixel_commands[i]);
     }
     // write pwm commands
     dxl_wb.syncWrite(
-      SYNC_WRITE_HANDLER_FOR_GOAL_PWM, group_map[name].joint_ids.data(),
-      group_map[name].joint_num, &dynamixel_commands[0], 1);
+      SYNC_WRITE_HANDLER_FOR_GOAL_PWM,
+      get_group_info(name)->joint_ids.data(),
+      get_group_info(name)->joint_num,
+      &dynamixel_commands[0],
+      1);
   } else {
     // invalid mode
     XSLOG_ERROR(
@@ -456,7 +495,27 @@ bool InterbotixDriverXS::robot_write_commands(
   return true;
 }
 
-bool InterbotixDriverXS::robot_write_joint_command(
+bool InterbotixDriverXS::write_position_commands(
+  const std::string & name,
+  std::vector<float> commands,
+  bool blocking)
+{
+  std::string mode = group_map.at(name).mode;
+  if (mode != mode::POSITION) {
+    XSLOG_ERROR(
+      "Group '%s' is in %s mode not in position mode. Will not execute commands.",
+      name.c_str(), mode.c_str());
+    return false;
+  }
+
+  bool res = write_commands(name, commands);
+  if (blocking) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(group_map.at(name).profile_velocity));
+  }
+  return res;
+}
+
+bool InterbotixDriverXS::write_joint_command(
   const std::string & name,
   float command)
 {
@@ -470,7 +529,7 @@ bool InterbotixDriverXS::robot_write_joint_command(
     // position command case
     if (mode == mode::LINEAR_POSITION) {
       // convert from linear position if necessary
-      command = robot_convert_linear_position_to_radian(name, command);
+      command = convert_linear_position_to_radian(name, command);
     }
     XSLOG_DEBUG(
       "ID: %d, writing %s command %f.",
@@ -502,13 +561,13 @@ bool InterbotixDriverXS::robot_write_joint_command(
   } else {
     // invalid mode
     XSLOG_ERROR(
-      "Invalid command for argument 'mode' while commanding joint.");
+      "Invalid command for argument 'mode' while commanding joint '%s'.", name.c_str());
     return false;
   }
   return true;
 }
 
-bool InterbotixDriverXS::robot_set_motor_pid_gains(
+bool InterbotixDriverXS::set_motor_pid_gains(
   const std::string cmd_type,
   const std::string & name,
   const std::vector<int32_t> & gains)
@@ -516,7 +575,7 @@ bool InterbotixDriverXS::robot_set_motor_pid_gains(
   std::vector<std::string> names;
   if (cmd_type == cmd_type::GROUP) {
     // group case, get names from group map
-    names = group_map[name].joint_names;
+    names = get_group_info(name)->joint_names;
   } else if (cmd_type == cmd_type::SINGLE) {
     // single case, just use given name
     names.push_back(name);
@@ -544,7 +603,7 @@ bool InterbotixDriverXS::robot_set_motor_pid_gains(
   return true;
 }
 
-bool InterbotixDriverXS::robot_set_motor_registers(
+bool InterbotixDriverXS::set_motor_registers(
   const std::string cmd_type,
   const std::string & name,
   const std::string & reg,
@@ -553,7 +612,7 @@ bool InterbotixDriverXS::robot_set_motor_registers(
   std::vector<std::string> names;
   if (cmd_type == cmd_type::GROUP) {
     // group case, get names from group map
-    names = group_map[name].joint_names;
+    names = get_group_info(name)->joint_names;
   } else if (cmd_type == cmd_type::SINGLE) {
     // single case, just use given name
     names.push_back(name);
@@ -569,7 +628,7 @@ bool InterbotixDriverXS::robot_set_motor_registers(
   return true;
 }
 
-bool InterbotixDriverXS::robot_get_motor_registers(
+bool InterbotixDriverXS::get_motor_registers(
   const std::string cmd_type,
   const std::string & name,
   const std::string & reg,
@@ -578,14 +637,15 @@ bool InterbotixDriverXS::robot_get_motor_registers(
   std::vector<std::string> names;
   if (cmd_type == cmd_type::GROUP) {
     // group case, get names from group map
-    names = group_map[name].joint_names;
+    names = get_group_info(name)->joint_names;
   } else if (cmd_type == cmd_type::SINGLE) {
     // single case, just use given name
     names.push_back(name);
   }
 
   // get info on the register that is going to be read from
-  const ControlItem * goal_reg = dxl_wb.getItemInfo(motor_map[names.front()].motor_id, reg.c_str());
+  const ControlItem * goal_reg = dxl_wb.getItemInfo(
+    motor_map.at(names.front()).motor_id, reg.c_str());
   if (goal_reg == NULL) {
     XSLOG_ERROR(
       "Could not get '%s' Item Info. Did you spell the register name correctly?",
@@ -602,7 +662,7 @@ bool InterbotixDriverXS::robot_get_motor_registers(
       return false;
     } else {
       XSLOG_DEBUG(
-        "ID: %d, reading reg: %s, value: %d.", motor_map[name].motor_id, reg.c_str(), value);
+        "ID: %d, reading reg: '%s', value: %d.", motor_map[name].motor_id, reg.c_str(), value);
     }
 
     // add register to values vector with type depending on data_length
@@ -617,73 +677,74 @@ bool InterbotixDriverXS::robot_get_motor_registers(
   return true;
 }
 
-bool InterbotixDriverXS::robot_get_joint_states(
+bool InterbotixDriverXS::get_joint_states(
   const std::string & name,
   std::vector<float> * positions,
   std::vector<float> * velocities,
   std::vector<float> * effort)
 {
-  for (const auto & joint_name : group_map[name].joint_names) {
+  read_joint_states();
+  std::lock_guard<std::mutex> guard(_mutex_js);
+  for (const auto & joint_name : get_group_info(name)->joint_names) {
     // iterate through each joint in group, reading pos, vel, and eff
     if (positions) {
-      positions->push_back(robot_positions.at(js_index_map[joint_name]));
+      positions->push_back(robot_positions.at(get_js_index(joint_name)));
     }
     if (velocities) {
-      velocities->push_back(robot_velocities.at(js_index_map[joint_name]));
+      velocities->push_back(robot_velocities.at(get_js_index(joint_name)));
     }
     if (effort) {
-      effort->push_back(robot_efforts.at(js_index_map[joint_name]));
+      effort->push_back(robot_efforts.at(get_js_index(joint_name)));
     }
-    XSLOG_DEBUG("ID: %ld, got joint state.", js_index_map[joint_name]);
   }
   return true;
 }
 
-bool InterbotixDriverXS::robot_get_joint_states(
+bool InterbotixDriverXS::get_joint_states(
   const std::string & name,
   std::vector<double> * positions,
   std::vector<double> * velocities,
   std::vector<double> * effort)
 {
+  read_joint_states();
   std::lock_guard<std::mutex> guard(_mutex_js);
-  for (const auto & joint_name : group_map[name].joint_names) {
+  for (const auto & joint_name : get_group_info(name)->joint_names) {
     // iterate through each joint in group, reading pos, vel, and eff
     if (positions) {
-      positions->push_back(robot_positions.at(js_index_map[joint_name]));
+      positions->push_back(robot_positions.at(get_js_index(joint_name)));
     }
     if (velocities) {
-      velocities->push_back(robot_velocities.at(js_index_map[joint_name]));
+      velocities->push_back(robot_velocities.at(get_js_index(joint_name)));
     }
     if (effort) {
-      effort->push_back(robot_efforts.at(js_index_map[joint_name]));
+      effort->push_back(robot_efforts.at(get_js_index(joint_name)));
     }
-    XSLOG_DEBUG("ID: %ld, got joint state.", js_index_map[joint_name]);
   }
   return true;
 }
 
-bool InterbotixDriverXS::robot_get_joint_state(
+bool InterbotixDriverXS::get_joint_state(
   const std::string & name,
   float * position,
   float * velocity,
   float * effort)
 {
+  read_joint_states();
   std::lock_guard<std::mutex> guard(_mutex_js);
   // read pos, vel, and eff for specified joint
   if (position) {
-    *position = robot_positions.at(js_index_map[name]);
+    *position = robot_positions.at(get_js_index(name));
   }
   if (velocity) {
-    *velocity = robot_velocities.at(js_index_map[name]);
+    *velocity = robot_velocities.at(get_js_index(name));
   }
   if (effort) {
-    *effort = robot_efforts.at(js_index_map[name]);
+    *effort = robot_efforts.at(get_js_index(name));
   }
-  XSLOG_DEBUG("ID: %ld, got joint state.", js_index_map[name]);
   return true;
 }
 
-float InterbotixDriverXS::robot_convert_linear_position_to_radian(
+float InterbotixDriverXS::convert_linear_position_to_radian(
   const std::string & name,
   const float & linear_position)
 {
@@ -699,7 +760,7 @@ float InterbotixDriverXS::robot_convert_linear_position_to_radian(
     pow(arm_length, 2)) / (2 * horn_radius * half_dist));
 }
 
-float InterbotixDriverXS::robot_convert_angular_position_to_linear(
+float InterbotixDriverXS::convert_angular_position_to_linear(
   const std::string & name,
   const float & angular_position)
 {
@@ -711,7 +772,7 @@ float InterbotixDriverXS::robot_convert_angular_position_to_linear(
   return a1 + a2;
 }
 
-bool InterbotixDriverXS::robot_retrieve_motor_configs(
+bool InterbotixDriverXS::retrieve_motor_configs(
   std::string filepath_motor_configs,
   std::string filepath_mode_configs)
 {
@@ -825,6 +886,8 @@ bool InterbotixDriverXS::robot_retrieve_motor_configs(
   all_joints.joint_num = (uint8_t) joint_order.size();
   all_joints.mode = mode::POSITION;
   all_joints.profile_type = profile::VELOCITY;
+  all_joints.profile_velocity = DEFAULT_PROF_VEL;
+  all_joints.profile_acceleration = DEFAULT_PROF_ACC;
   for (size_t i{0}; i < joint_order.size(); i++) {
     // iterate through each joint in joint_order list
     // save each joint ID and name
@@ -855,7 +918,7 @@ bool InterbotixDriverXS::robot_retrieve_motor_configs(
   // all the all_joints JointGroup to the group_map
   group_map.insert({"all", all_joints});
   // create a pointer from the group_map's all group reference
-  all_ptr = &group_map["all"];
+  all_ptr = &group_map.at("all");
 
   // create all_shadows node from 'shadows'
   YAML::Node all_shadows = motor_configs["shadows"];
@@ -920,7 +983,7 @@ bool InterbotixDriverXS::robot_retrieve_motor_configs(
   return true;
 }
 
-bool InterbotixDriverXS::robot_init_port()
+bool InterbotixDriverXS::init_port()
 {
   // try to connect to the specified port at the default baudrate
   if (!dxl_wb.init(port.c_str(), DEFAULT_BAUDRATE)) {
@@ -933,43 +996,55 @@ bool InterbotixDriverXS::robot_init_port()
   return true;
 }
 
-bool InterbotixDriverXS::robot_ping_motors()
+bool InterbotixDriverXS::ping_motors()
 {
-  for (const auto &[motor_name, motor_state] : motor_map) {
+  // result is true by default, if can't find motor, set this to false
+  bool found_all_motors = true;
+  const char * log;
+  for (size_t cntr_ping_motors = 0; cntr_ping_motors < 3; cntr_ping_motors++) {
+    XSLOG_INFO(
+      "Pinging all motors specified in the motor_config file. (Attempt %ld/3)",
+      cntr_ping_motors + 1);
     // iterate through each servo in the motor_map
-    uint16_t model_number = 0;
-    // try to ping the servo
-    if (!dxl_wb.ping(motor_state.motor_id, &model_number)) {
-      // if any ping is unsuccessful, shut down
-      XSLOG_ERROR(
-        "Can't find Dynamixel ID '%d',\tJoint Name : '%s'",
-        motor_state.motor_id, motor_name.c_str());
-      return false;
-    } else {
-      XSLOG_INFO(
-        "Found Dynamixel ID : '%d',\tModel : '%s',\tJoint Name : '%s'",
-        motor_state.motor_id, dxl_wb.getModelName(motor_state.motor_id), motor_name.c_str());
+    for (const auto &[motor_name, motor_state] : motor_map) {
+      // try to ping the servo
+      if (!dxl_wb.ping(motor_state.motor_id, &log)) {
+        // if any ping is unsuccessful, shut down
+        XSLOG_ERROR(
+          "\tCan't find DYNAMIXEL ID: %2.d, Joint Name: '%s':\n\t\t  '%s'",
+          motor_state.motor_id, motor_name.c_str(), log);
+        found_all_motors = false;
+      } else {
+        XSLOG_INFO(
+          "\tFound DYNAMIXEL ID: %2.d, Model: '%s', Joint Name: '%s'.",
+          motor_state.motor_id, dxl_wb.getModelName(motor_state.motor_id), motor_name.c_str());
+      }
+      // untorque each pinged servo, need to write data to the EEPROM
+      dxl_wb.torque(motor_state.motor_id, false);
     }
-    // untorque each pinged servo, need to write data to the EEPROM
-    dxl_wb.torque(motor_state.motor_id, false);
+    if (found_all_motors) {
+      return found_all_motors;
+    }
   }
-  return true;
+  return found_all_motors;
 }
 
-bool InterbotixDriverXS::robot_load_motor_configs()
+bool InterbotixDriverXS::load_motor_configs()
 {
+  // result is true by default, if can't write config, set this to false
+  bool wrote_all_configs = true;
   for (auto const & motor_info : motor_info_vec) {
     if (!dxl_wb.itemWrite(motor_info.motor_id, motor_info.reg.c_str(), motor_info.value)) {
       XSLOG_FATAL(
-        "Failed to write value[%d] on items[%s] to [ID : %d]",
+        "Failed to write value[%d] on items[%s] to [ID : %2.d]",
         motor_info.value, motor_info.reg.c_str(), motor_info.motor_id);
-      return false;
+      wrote_all_configs = false;
     }
   }
-  return true;
+  return wrote_all_configs;
 }
 
-bool InterbotixDriverXS::robot_init_controlItems()
+bool InterbotixDriverXS::init_controlItems()
 {
   uint8_t motor_id = motor_map.begin()->second.motor_id;
 
@@ -1042,7 +1117,7 @@ bool InterbotixDriverXS::robot_init_controlItems()
   return true;
 }
 
-bool InterbotixDriverXS::robot_init_workbench_handlers()
+bool InterbotixDriverXS::init_workbench_handlers()
 {
   if (
     !dxl_wb.addSyncWriteHandler(
@@ -1097,14 +1172,14 @@ bool InterbotixDriverXS::robot_init_workbench_handlers()
       control_items["Present_Current"]->data_length + \
       2;
     if (!dxl_wb.addSyncReadHandler(start_address, read_length)) {
-      XSLOG_FATAL("Failed to add SyncReadHandler");
+      XSLOG_FATAL("Failed to add SyncReadHandler.");
       return false;
     }
   }
   return true;
 }
 
-void InterbotixDriverXS::robot_init_operating_modes()
+void InterbotixDriverXS::init_operating_modes()
 {
   YAML::Node all_shadows = motor_configs["shadows"];
   for (
@@ -1118,7 +1193,9 @@ void InterbotixDriverXS::robot_init_operating_modes()
       int32_t master_position;
       dxl_wb.itemRead(motor_map[master_name].motor_id, "Present_Position", &master_position);
       for (auto const & shadow_name : shadow_map[master_name]) {
-        if (shadow_name == master_name) {continue;}
+        if (shadow_name == master_name) {
+          continue;
+        }
         dxl_wb.itemWrite(motor_map[shadow_name].motor_id, "Homing_Offset", 0);
         int32_t shadow_position, shadow_drive_mode;
         dxl_wb.itemRead(motor_map[shadow_name].motor_id, "Present_Position", &shadow_position);
@@ -1129,7 +1206,7 @@ void InterbotixDriverXS::robot_init_operating_modes()
         // This mode dictates how to calculate the homing offset of the shadow motor
         std::bitset<8> shadow_drive_mode_bitset = shadow_drive_mode;
         int32_t homing_offset;
-        if (shadow_drive_mode_bitset[0]) {
+        if (shadow_drive_mode_bitset.test(0)) {
           homing_offset = master_position - shadow_position;
         } else {
           homing_offset = shadow_position - master_position;
@@ -1154,7 +1231,7 @@ void InterbotixDriverXS::robot_init_operating_modes()
     int32_t profile_velocity = single_group["profile_velocity"].as<int32_t>(DEFAULT_PROF_VEL);
     int32_t profile_acceleration =
       single_group["profile_acceleration"].as<int32_t>(DEFAULT_PROF_ACC);
-    robot_set_operating_modes(
+    set_operating_modes(
       cmd_type::GROUP,
       name,
       operating_mode,
@@ -1162,7 +1239,7 @@ void InterbotixDriverXS::robot_init_operating_modes()
       profile_velocity,
       profile_acceleration);
     if (!single_group["torque_enable"].as<bool>(TORQUE_ENABLE)) {
-      robot_torque_enable(cmd_type::GROUP, name, false);
+      torque_enable(cmd_type::GROUP, name, false);
     }
   }
 
@@ -1181,7 +1258,7 @@ void InterbotixDriverXS::robot_init_operating_modes()
     int32_t profile_velocity = single_joint["profile_velocity"].as<int32_t>(DEFAULT_PROF_VEL);
     int32_t profile_acceleration =
       single_joint["profile_acceleration"].as<int32_t>(DEFAULT_PROF_ACC);
-    robot_set_operating_modes(
+    set_operating_modes(
       cmd_type::SINGLE,
       single_name,
       operating_mode,
@@ -1189,12 +1266,12 @@ void InterbotixDriverXS::robot_init_operating_modes()
       profile_velocity,
       profile_acceleration);
     if (!single_joint["torque_enable"].as<bool>(TORQUE_ENABLE)) {
-      robot_torque_enable(cmd_type::SINGLE, single_name, false);
+      torque_enable(cmd_type::SINGLE, single_name, false);
     }
   }
 }
 
-void InterbotixDriverXS::robot_read_joint_states()
+void InterbotixDriverXS::read_joint_states()
 {
   std::lock_guard<std::mutex> guard(_mutex_js);
   robot_positions.clear();
@@ -1307,12 +1384,12 @@ void InterbotixDriverXS::robot_read_joint_states()
   }
 }
 
-void InterbotixDriverXS::get_joint_names(std::vector<std::string> & names)
+std::vector<std::string> InterbotixDriverXS::get_all_joint_names()
 {
-  names = all_ptr->joint_names;
+  return all_ptr->joint_names;
 }
 
-float InterbotixDriverXS::get_sleep_position(const std::string & name)
+float InterbotixDriverXS::get_joint_sleep_position(const std::string & name)
 {
   return sleep_map[name];
 }
@@ -1342,14 +1419,40 @@ Gripper * InterbotixDriverXS::get_gripper_info(const std::string & name)
   return &gripper_map.at(name);
 }
 
-std::vector<std::string> * InterbotixDriverXS::get_gripper_order()
+std::vector<std::string> InterbotixDriverXS::get_gripper_order()
 {
-  return &gripper_order;
+  return gripper_order;
+}
+
+size_t InterbotixDriverXS::get_js_index(const std::string & name)
+{
+  return js_index_map.at(name);
 }
 
 bool InterbotixDriverXS::is_motor_gripper(const std::string & name)
 {
   return gripper_map.count(name) > 0;
+}
+
+bool InterbotixDriverXS::go_to_sleep_configuration(
+  const std::string & name,
+  const bool blocking)
+{
+  XSLOG_DEBUG("Sending robot to sleep configuration.");
+  std::vector<float> sleep_positions;
+  for (auto const & joint_name : get_group_info(name)->joint_names) {
+    sleep_positions.push_back(get_joint_sleep_position(joint_name));
+  }
+  return write_position_commands(name, sleep_positions, blocking);
+}
+
+bool InterbotixDriverXS::go_to_home_configuration(
+  const std::string & name,
+  const bool blocking)
+{
+  XSLOG_DEBUG("Sending robot to home configuration.");
+  std::vector<float> home_positions(get_group_info(name)->joint_num, 0.0);
+  return write_position_commands(name, home_positions, blocking);
 }
 
 }  // namespace interbotix_xs

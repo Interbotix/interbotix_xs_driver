@@ -29,7 +29,12 @@
 #ifndef INTERBOTIX_XS_DRIVER__XS_COMMON_HPP_
 #define INTERBOTIX_XS_DRIVER__XS_COMMON_HPP_
 
+#include "interbotix_xs_driver/xs_logging.hpp"
+
+#include <chrono>
+#include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace interbotix_xs
@@ -122,6 +127,10 @@ struct JointGroup
   std::string mode;
   // Profile Type ('velocity' or 'time') for all joints in the group
   std::string profile_type;
+  // Profile Velocity (in ms) for all joints in the group
+  int32_t profile_velocity;
+  // Profile Acceleration (in ms) for all joints in the group
+  int32_t profile_acceleration;
 };
 
 // Struct to hold data on a single motor
@@ -133,6 +142,10 @@ struct MotorState
   std::string mode;
   // Profile Type ('velocity' or 'time') for the motor
   std::string profile_type;
+  // Profile Velocity (in ms) for the motor
+  int32_t profile_velocity;
+  // Profile Acceleration (in ms) for the motor
+  int32_t profile_acceleration;
 };
 
 // Struct to hold data on an Interbotix Gripper
@@ -160,6 +173,10 @@ struct MotorRegVal
   // Value to write to the above register for the specified motor
   int32_t value;
 };
+
+using MapGroup = std::unordered_map<std::string, JointGroup>;
+using MapMotor = std::unordered_map<std::string, MotorState>;
+using MapGripper = std::unordered_map<std::string, Gripper>;
 
 }  // namespace interbotix_xs
 

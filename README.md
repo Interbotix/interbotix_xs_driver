@@ -1,17 +1,17 @@
 # Interbotix X-Series Driver
 
-The Interbotix X-Series Driver provides low-level interfaces to easily control an Interbotix X-Series Robot.
+The Interbotix X-Series Driver provides low-level interfaces to easily control the DYNAMIXEL servos on any Interbotix X-Series Robot.
 
 This package can be used without ROS, but currently depends on ROS tooling. A more thorough divorce of ROS and the driver will be completed in the future.
 
 #### X-Series Driver Build Status
 
-##### ROS2-Dependent Build Status
+##### ROS 2-Dependent Build Status
 [![build-ros2](https://github.com/Interbotix/interbotix_xs_driver/actions/workflows/ros2.yaml/badge.svg)](https://github.com/Interbotix/interbotix_xs_driver/actions/workflows/ros2.yaml)
 
 ## Installation
 
-This package is known to build using ROS2 Galactic build tools on Ubuntu 20.04. No other configuration or environment has been tested and is not supported.
+This package is known to build using ROS 2 Galactic build tools on Ubuntu 20.04. No other configuration or environment has been tested and is not supported.
 
 ### Required Dependencies
 
@@ -41,6 +41,15 @@ The X-Series Driver is compiled as a library and can be used in any C++ project 
 #include "interbotix_xs_driver/xs_logging.hpp"  // Logging macros and utils
 #include "interbotix_xs_driver/xs_common.hpp"   // Common variables and types
 #include "interbotix_xs_driver/xs_driver.hpp"   // The InterbotixDriverXS class
+```
+
+```cmake
+...
+find_package(interbotix_xs_driver REQUIRED)
+...
+add_executable(executable)
+ament_target_dependencies(executable interbotix_xs_driver ...)
+...
 ```
 
 Then create an `InterbotixDriverXS` object, providing the following in the order stated:

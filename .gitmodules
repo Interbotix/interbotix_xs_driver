@@ -1,0 +1,8 @@
+[submodule "third_party_libraries/DynamixelSDK"]
+	path = third_party_libraries/DynamixelSDK
+	url = https://github.com/Interbotix/DynamixelSDK.git
+	branch = main
+[submodule "third_party_libraries/dynamixel-workbench"]
+	path = third_party_libraries/dynamixel-workbench
+	url = https://github.com/Interbotix/dynamixel-workbench.git
+	branch = main

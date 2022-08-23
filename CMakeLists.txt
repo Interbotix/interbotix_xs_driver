@@ -1,27 +1,27 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.14)
 project(interbotix_xs_driver LANGUAGES CXX)
 
-if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
-endif()
+include(CMakeDependentOption)
+include(GNUInstallDirs)
+include(InstallRequiredSystemLibraries)
+include(CMakePackageConfigHelpers)
 
-if(CMAKE_COMPILER_IS_GNUXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
+add_subdirectory(third_party_libraries/DynamixelSDK)
+add_subdirectory(third_party_libraries/dynamixel-workbench)
 
-find_package(dynamixel_workbench_toolbox REQUIRED)
 find_package(yaml-cpp REQUIRED)
-
-include_directories(include)
 
 set(DEPENDENCIES
   dynamixel_workbench_toolbox
+  yaml-cpp
 )
 
 # Generate version header file from package.xml
 include(cmake/Version.cmake)
+message(${PATH_TO_VERSION_OUTPUT_DIR})
+include_directories(${PATH_TO_VERSION_OUTPUT_DIR})
 
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_library(
   ${PROJECT_NAME} SHARED
@@ -29,12 +29,16 @@ add_library(
     src/xs_logging.cpp
 )
 
-ament_target_dependencies(${PROJECT_NAME} ${DEPENDENCIES})
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
+
 target_include_directories(${PROJECT_NAME} PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(${PROJECT_NAME} yaml-cpp)
+
+target_link_libraries(${PROJECT_NAME}
+  ${DEPENDENCIES}
+)
 
 install(
   TARGETS ${PROJECT_NAME}
@@ -65,15 +69,3 @@ install(
   DESTINATION
     share/${PROJECT_NAME}
 )
-
-ament_export_dependencies(
-  yaml-cpp
-)
-
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  ament_lint_auto_find_test_dependencies()
-endif()
-
-ament_export_targets("export_${PROJECT_NAME}")
-ament_package()

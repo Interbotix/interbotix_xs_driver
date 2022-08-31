@@ -29,12 +29,7 @@
 #ifndef INTERBOTIX_XS_DRIVER__XS_DRIVER_HPP_
 #define INTERBOTIX_XS_DRIVER__XS_DRIVER_HPP_
 
-#include <interbotix_xs_driver/version.hpp>
-#include <interbotix_xs_driver/xs_common.hpp>
-#include <interbotix_xs_driver/xs_logging.hpp>
-
-#include <math.h>
-
+#include <cmath>
 #include <chrono>
 #include <string>
 #include <bitset>
@@ -46,6 +41,9 @@
 
 #include "yaml-cpp/yaml.h"
 #include "dynamixel_workbench_toolbox/dynamixel_workbench.h"
+#include "interbotix_xs_driver/version.hpp"
+#include "interbotix_xs_driver/xs_common.hpp"
+#include "interbotix_xs_driver/xs_logging.hpp"
 
 namespace interbotix_xs
 {

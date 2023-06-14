@@ -161,6 +161,12 @@ struct Gripper
   std::string left_finger;
   // Name of the 'right_finger' joint as defined in the URDF (if present)
   std::string right_finger;
+  // Calibration offset [rad] for gripper
+  float calibration_offset;
+  // Whether or not the gripper should be calibrated
+  bool calibrate;
+  // Whether or not the gripper is calibrated
+  bool is_calibrated;
 };
 
 // Struct to hold a desired register value for a given motor

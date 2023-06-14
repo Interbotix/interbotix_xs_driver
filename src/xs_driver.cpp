@@ -78,6 +78,7 @@ InterbotixDriverXS::InterbotixDriverXS(
   init_controlItems();
   init_workbench_handlers();
   init_operating_modes();
+  XSLOG_INFO("Running Gripper Calibration Next");
   calibrate_grippers();
   XSLOG_INFO("Interbotix X-Series Driver is up!");
 }
@@ -877,7 +878,7 @@ bool InterbotixDriverXS::retrieve_motor_configs(
     gripper.arm_length = single_gripper["arm_length"].as<float>(0.024);
     gripper.left_finger = single_gripper["left_finger"].as<std::string>("left_finger");
     gripper.right_finger = single_gripper["right_finger"].as<std::string>("right_finger");
-    gripper.calibrate = single_gripper["calibrate"].as<bool>(false);
+    gripper.calibrate = single_gripper["calibrate"].as<bool>(true);
     gripper.calibration_offset = 0.0;
     gripper_map.insert({gripper_name, gripper});
   }
@@ -1291,7 +1292,7 @@ void InterbotixDriverXS::calibrate_grippers()
     // get initial gripper position
     get_joint_state(gripper_name, &curr_gripper_pos, NULL, NULL);
     // write negative PWM to the gripper to close it
-    write_joint_command(gripper_name, -200.0);
+    write_joint_command(gripper_name, -150.0);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     // keep checking the gripper position until it stops moving between loop iterations
     while (std::abs(curr_gripper_pos - last_gripper_pos) > 0.0001) {

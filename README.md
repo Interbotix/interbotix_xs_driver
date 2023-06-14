@@ -115,6 +115,6 @@ Generating the documentation requires the following dependencies:
 
 Run the following command in the root of this repository:
 
-```console
-$ doxygen
+```sh
+doxygen
 ```

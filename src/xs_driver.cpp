@@ -1280,7 +1280,6 @@ void InterbotixDriverXS::init_operating_modes()
 
 void InterbotixDriverXS::calibrate_grippers()
 {
-  read_joint_states();
   float curr_gripper_pos, last_gripper_pos = 100.0;
   // through each gripper
   for (auto & [gripper_name, gripper] : gripper_map) {

@@ -99,3 +99,22 @@ std::unique_ptr<InterbotixDriverXS> xs_driver = std::make_unique<InterbotixDrive
 ```
 
 See the package's source code for more details.
+
+## Generating Documentation
+
+### Required Dependencies
+
+Generating the documentation requires the following dependencies:
+
+- [doxygen](https://www.doxygen.nl/manual/install.html)
+  - `sudo apt install -y doxygen`
+- [graphviz](https://graphviz.org/download/)
+  - `sudo apt install -y graphviz`
+
+### Generation
+
+Run the following command in the root of this repository:
+
+```console
+$ doxygen
+```

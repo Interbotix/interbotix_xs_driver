@@ -1,7 +1,17 @@
+# Python
 *.pyc
 __pycache__/
 *.egg-info/
-*.a
+
+# Build artifacts & logs
 build/
 install/
+log/
+*.a
+
+# VS Code
 .vscode/
+
+# Documentation
+docs/html/
+docs/*.tag

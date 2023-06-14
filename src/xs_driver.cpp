@@ -1288,7 +1288,7 @@ void InterbotixDriverXS::calibrate_grippers()
     if (!gripper.calibrate) {
       continue;
     }
-    XSLOG_INFO("Calibrating gripper '%s'...", gripper_name.c_str());
+    XSLOG_DEBUG("Calibrating gripper '%s'...", gripper_name.c_str());
     // get initial gripper position
     get_joint_state(gripper_name, &curr_gripper_pos, NULL, NULL);
     // write -200.0 PWM to the gripper to close it
@@ -1304,7 +1304,7 @@ void InterbotixDriverXS::calibrate_grippers()
     gripper.calibration_offset = curr_gripper_pos;
     // write 0.0 PWM to the gripper to stop it from closing
     write_joint_command(gripper_name, 0.0);
-    XSLOG_INFO(
+    XSLOG_DEBUG(
       "Calibrated gripper '%s' to have offset %f rad.",
       gripper_name.c_str(),
       gripper.calibration_offset);

@@ -165,8 +165,6 @@ struct Gripper
   float calibration_offset;
   // Whether or not the gripper should be calibrated
   bool calibrate;
-  // Whether or not the gripper is calibrated
-  bool is_calibrated;
 };
 
 // Struct to hold a desired register value for a given motor

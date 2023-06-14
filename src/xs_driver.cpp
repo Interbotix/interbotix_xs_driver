@@ -79,6 +79,7 @@ InterbotixDriverXS::InterbotixDriverXS(
   init_workbench_handlers();
   init_operating_modes();
   init_controlItems();
+  calibrate_grippers();
   XSLOG_INFO("Interbotix X-Series Driver is up!");
 }
 
@@ -878,7 +879,6 @@ bool InterbotixDriverXS::retrieve_motor_configs(
     gripper.left_finger = single_gripper["left_finger"].as<std::string>("left_finger");
     gripper.right_finger = single_gripper["right_finger"].as<std::string>("right_finger");
     gripper.calibrate = single_gripper["calibrate"].as<bool>(false);
-    gripper.is_calibrated = false;
     gripper.calibration_offset = 0.0;
     gripper_map.insert({gripper_name, gripper});
   }
@@ -1275,6 +1275,37 @@ void InterbotixDriverXS::init_operating_modes()
     if (!single_joint["torque_enable"].as<bool>(TORQUE_ENABLE)) {
       torque_enable(cmd_type::SINGLE, single_name, false);
     }
+  }
+}
+
+void InterbotixDriverXS::calibrate_grippers()
+{
+  read_joint_states();
+  float curr_gripper_pos, last_gripper_pos = 100.0;
+  // through each gripper
+  for (auto & [gripper_name, gripper] : gripper_map) {
+    // skip gripper if we shouldn't calibrate it
+    if (!gripper.calibrate) {
+      continue;
+    }
+    XSLOG_INFO("Calibrating gripper '%s'...", gripper_name.c_str());
+    // get initial gripper position
+    get_joint_state(gripper_name, &curr_gripper_pos, NULL, NULL);
+    // write -200.0 PWM to the gripper to close it
+    write_joint_command(gripper_name, -200.0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    // keep checking the gripper position until it stops moving between loop iterations
+    while (std::abs(curr_gripper_pos - last_gripper_pos) > 0.0001) {
+      last_gripper_pos = curr_gripper_pos;
+      get_joint_state(gripper_name, &curr_gripper_pos, NULL, NULL);
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    gripper.calibration_offset = curr_gripper_pos;
+    write_joint_command(gripper_name, 0.0);
+    XSLOG_INFO(
+      "Calibrated gripper '%s' to have offset %f rad.",
+      gripper_name.c_str(),
+      gripper.calibration_offset);
   }
 }
 

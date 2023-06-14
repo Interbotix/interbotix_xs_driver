@@ -426,6 +426,9 @@ private:
   ///   motors accordingly
   void init_operating_modes();
 
+  /// @brief Calibrates the gripper motors
+  void calibrate_grippers();
+
   /// @brief Updates the joint states from the DYNAMIXELs
   void read_joint_states();
 };

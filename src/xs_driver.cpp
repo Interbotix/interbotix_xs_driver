@@ -48,7 +48,7 @@ InterbotixDriverXS::InterbotixDriverXS(
     "Using Interbotix X-Series Driver Version: 'v%d.%d.%d'.",
     VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
   logging::set_level(logging_level);
-  XSLOG_INFO("Using logging level '%s'.", logging_level.c_str());
+  XSLOG_INFO("Using logging level: '%s'.", logging_level.c_str());
   if (!retrieve_motor_configs(filepath_motor_configs, filepath_mode_configs)) {
     throw std::runtime_error("Failed due to bad config.");
   }
@@ -211,7 +211,7 @@ bool InterbotixDriverXS::set_joint_operating_mode(
         "Profile_Acceleration",
         profile_acceleration);
       XSLOG_DEBUG(
-        "ID: %d, set mode ext_postition, pv=%i, pa=%i.",
+        "ID: %d, set mode ext_position, pv=%i, pa=%i.",
         motor_map[motor_name].motor_id, profile_velocity, profile_acceleration);
     } else if (mode == mode::VELOCITY) {
       // set velocity control mode if the mode is velocity
@@ -309,7 +309,7 @@ bool InterbotixDriverXS::torque_enable(
       name.c_str());
     return false;
   } else {
-    // inavlid cmd_type
+    // invalid cmd_type
     XSLOG_ERROR(
       "Invalid command for argument 'cmd_type' while torquing joints.");
     return false;
@@ -782,7 +782,9 @@ bool InterbotixDriverXS::retrieve_motor_configs(
     motor_configs = YAML::LoadFile(filepath_motor_configs.c_str());
   } catch (YAML::BadFile & error) {
     // if file is not found or a bad format, shut down
-    XSLOG_FATAL("Motor Config file was not found or has a bad format. Shutting down...");
+    XSLOG_FATAL(
+      "Motor Config file at '%s' was not found or has a bad format. Shutting down...",
+      filepath_motor_configs.c_str());
     XSLOG_FATAL("YAML Error: '%s'", error.what());
     return false;
   }
@@ -803,7 +805,8 @@ bool InterbotixDriverXS::retrieve_motor_configs(
   } catch (YAML::BadFile & error) {
     // if file is not found or a bad format, shut down
     XSLOG_FATAL(
-      "Mode Config file was not found or has a bad format. Shutting down...");
+      "Mode Config file at '%s' was not found or has a bad format. Shutting down...",
+      filepath_mode_configs.c_str());
     XSLOG_FATAL(
       "YAML Error: '%s'",
       error.what());
@@ -1023,6 +1026,7 @@ bool InterbotixDriverXS::ping_motors()
       dxl_wb.torque(motor_state.motor_id, false);
     }
     if (found_all_motors) {
+      XSLOG_INFO("Successfully pinged all motors specified in the motor_config file.");
       return found_all_motors;
     }
   }

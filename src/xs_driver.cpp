@@ -78,7 +78,6 @@ InterbotixDriverXS::InterbotixDriverXS(
   init_controlItems();
   init_workbench_handlers();
   init_operating_modes();
-  init_controlItems();
   calibrate_grippers();
   XSLOG_INFO("Interbotix X-Series Driver is up!");
 }
@@ -1280,10 +1279,10 @@ void InterbotixDriverXS::init_operating_modes()
 
 void InterbotixDriverXS::calibrate_grippers()
 {
-  // initialize variables to keep track of gripper position, set last to a dummy value
-  float curr_gripper_pos, last_gripper_pos = 100.0;
   // loop through each gripper in the gripper_map
   for (auto & [gripper_name, gripper] : gripper_map) {
+    // initialize variables to keep track of gripper position, set last to a dummy value
+    float curr_gripper_pos, last_gripper_pos = std::numeric_limits<float>::max();
     // skip gripper if we shouldn't calibrate it
     if (!gripper.calibrate) {
       continue;
@@ -1291,7 +1290,7 @@ void InterbotixDriverXS::calibrate_grippers()
     XSLOG_DEBUG("Calibrating gripper '%s'...", gripper_name.c_str());
     // get initial gripper position
     get_joint_state(gripper_name, &curr_gripper_pos, NULL, NULL);
-    // write -200.0 PWM to the gripper to close it
+    // write negative PWM to the gripper to close it
     write_joint_command(gripper_name, -200.0);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     // keep checking the gripper position until it stops moving between loop iterations

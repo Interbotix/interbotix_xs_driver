@@ -1299,10 +1299,12 @@ void InterbotixDriverXS::calibrate_grippers()
       get_joint_state(gripper_name, &curr_gripper_pos, NULL, NULL);
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    // set calibration offset to the current gripper position
-    gripper.calibration_offset = curr_gripper_pos;
     // write 0.0 PWM to the gripper to stop it from closing
     write_joint_command(gripper_name, 0.0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    get_joint_state(gripper_name, &curr_gripper_pos, NULL, NULL);
+    // set calibration offset to the current gripper position
+    gripper.calibration_offset = curr_gripper_pos;
     XSLOG_DEBUG(
       "Calibrated gripper '%s' to have offset %f rad.",
       gripper_name.c_str(),

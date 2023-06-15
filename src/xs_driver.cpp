@@ -711,13 +711,32 @@ bool InterbotixDriverXS::get_joint_states(
   for (const auto & joint_name : get_group_info(name)->joint_names) {
     // iterate through each joint in group, reading pos, vel, and eff
     if (positions) {
-      positions->push_back(robot_positions.at(get_js_index(joint_name)));
+      if (is_motor_gripper(joint_name)) {
+        positions->push_back(
+          robot_positions.at(get_js_index(joint_name)) \
+          - gripper_map[joint_name].calibration_offset);
+        double pos = convert_angular_position_to_linear(
+          joint_name,
+          positions->at(get_js_index(joint_name)));
+        positions->push_back(pos);
+        positions->push_back(-pos);
+      } else {
+        positions->push_back(robot_positions.at(get_js_index(joint_name)));
+      }
     }
     if (velocities) {
       velocities->push_back(robot_velocities.at(get_js_index(joint_name)));
+      if (is_motor_gripper(joint_name)) {
+        velocities->push_back(0.0);
+        velocities->push_back(0.0);
+      }
     }
     if (effort) {
       effort->push_back(robot_efforts.at(get_js_index(joint_name)));
+      if (is_motor_gripper(joint_name)) {
+        effort->push_back(0.0);
+        effort->push_back(0.0);
+      }
     }
   }
   return true;

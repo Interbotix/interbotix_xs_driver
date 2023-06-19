@@ -712,13 +712,32 @@ bool InterbotixDriverXS::get_joint_states(
   for (const auto & joint_name : get_group_info(name)->joint_names) {
     // iterate through each joint in group, reading pos, vel, and eff
     if (positions) {
-      positions->push_back(robot_positions.at(get_js_index(joint_name)));
+      if (is_motor_gripper(joint_name)) {
+        positions->push_back(
+          robot_positions.at(get_js_index(joint_name)) \
+          - gripper_map[joint_name].calibration_offset);
+        double pos = convert_angular_position_to_linear(
+          joint_name,
+          positions->at(get_js_index(joint_name)));
+        positions->push_back(pos);
+        positions->push_back(-pos);
+      } else {
+        positions->push_back(robot_positions.at(get_js_index(joint_name)));
+      }
     }
     if (velocities) {
       velocities->push_back(robot_velocities.at(get_js_index(joint_name)));
+      if (is_motor_gripper(joint_name)) {
+        velocities->push_back(0.0);
+        velocities->push_back(0.0);
+      }
     }
     if (effort) {
       effort->push_back(robot_efforts.at(get_js_index(joint_name)));
+      if (is_motor_gripper(joint_name)) {
+        effort->push_back(0.0);
+        effort->push_back(0.0);
+      }
     }
   }
   return true;
@@ -1300,10 +1319,12 @@ void InterbotixDriverXS::calibrate_grippers()
       get_joint_state(gripper_name, &curr_gripper_pos, NULL, NULL);
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    // set calibration offset to the current gripper position
-    gripper.calibration_offset = curr_gripper_pos;
     // write 0.0 PWM to the gripper to stop it from closing
     write_joint_command(gripper_name, 0.0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    get_joint_state(gripper_name, &curr_gripper_pos, NULL, NULL);
+    // set calibration offset to the current gripper position
+    gripper.calibration_offset = curr_gripper_pos;
     XSLOG_DEBUG(
       "Calibrated gripper '%s' to have offset %f rad.",
       gripper_name.c_str(),

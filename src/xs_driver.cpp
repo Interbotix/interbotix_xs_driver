@@ -714,11 +714,11 @@ bool InterbotixDriverXS::get_joint_states(
     if (positions) {
       if (is_motor_gripper(joint_name)) {
         positions->push_back(
-          robot_positions.at(get_js_index(joint_name))
-          - gripper_map[joint_name].calibration_offset);
+          robot_positions.at(get_js_index(joint_name)) - \
+          gripper_map[joint_name].calibration_offset);
         double pos = convert_angular_position_to_linear(
-            joint_name,
-            positions->at(get_js_index(joint_name)) + gripper_map[joint_name].calibration_offset);
+          joint_name,
+          positions->at(get_js_index(joint_name)) + gripper_map[joint_name].calibration_offset);
         positions->push_back(pos);
         positions->push_back(-pos);
       } else {
@@ -775,8 +775,7 @@ float InterbotixDriverXS::convert_linear_position_to_radian(
     float horn_radius = gripper_map[name].horn_radius;
 
     // (pi / 2) - acos(horn_rad^2 + (pos / 2)^2 - arm_length^2) / (2 * horn_rad * (pos / 2))
-    return 3.14159 / 2.0 - \
-          acos(
+    return 3.14159 / 2.0 - acos(
       (pow(horn_radius, 2) + \
       pow(half_dist, 2) - \
       pow(arm_length, 2)) / (2 * horn_radius * half_dist));
@@ -791,12 +790,12 @@ float InterbotixDriverXS::convert_angular_position_to_linear(
   const float & angular_position)
 {
   if (gripper_map[name].type == "swing_arm") {
-  float arm_length = gripper_map[name].arm_length;
-  float horn_radius = gripper_map[name].horn_radius;
-  float a1 = horn_radius * sin(angular_position);
-  float c = sqrt(pow(horn_radius, 2) - pow(a1, 2));
-  float a2 = sqrt(pow(arm_length, 2) - pow(c, 2));
-  return a1 + a2;
+    float arm_length = gripper_map[name].arm_length;
+    float horn_radius = gripper_map[name].horn_radius;
+    float a1 = horn_radius * sin(angular_position);
+    float c = sqrt(pow(horn_radius, 2) - pow(a1, 2));
+    float a2 = sqrt(pow(arm_length, 2) - pow(c, 2));
+    return a1 + a2;
   } else {
     // Conversion in rack and pinion gripper [circumference = r * theta]
     return gripper_map[name].pitch_radius * angular_position;

@@ -768,28 +768,39 @@ float InterbotixDriverXS::convert_linear_position_to_radian(
   const std::string & name,
   const float & linear_position)
 {
-  float half_dist = linear_position / 2.0;
-  float arm_length = gripper_map[name].arm_length;
-  float horn_radius = gripper_map[name].horn_radius;
+  // Check the type of gripper mechanism
+  if (gripper_map[name].type == "swing_arm") {
+    float half_dist = linear_position / 2.0;
+    float arm_length = gripper_map[name].arm_length;
+    float horn_radius = gripper_map[name].horn_radius;
 
-  // (pi / 2) - acos(horn_rad^2 + (pos / 2)^2 - arm_length^2) / (2 * horn_rad * (pos / 2))
-  return 3.14159 / 2.0 - \
-         acos(
-    (pow(horn_radius, 2) + \
-    pow(half_dist, 2) - \
-    pow(arm_length, 2)) / (2 * horn_radius * half_dist));
+    // (pi / 2) - acos(horn_rad^2 + (pos / 2)^2 - arm_length^2) / (2 * horn_rad * (pos / 2))
+    return 3.14159 / 2.0 - \
+          acos(
+      (pow(horn_radius, 2) + \
+      pow(half_dist, 2) - \
+      pow(arm_length, 2)) / (2 * horn_radius * half_dist));
+  } else {
+    // Conversion for rack and pinion
+    return linear_position / 2 * gripper_map[name].pitch_radius;
+  }
 }
 
 float InterbotixDriverXS::convert_angular_position_to_linear(
   const std::string & name,
   const float & angular_position)
 {
+  if (gripper_map[name].type == "swing_arm") {
   float arm_length = gripper_map[name].arm_length;
   float horn_radius = gripper_map[name].horn_radius;
   float a1 = horn_radius * sin(angular_position);
   float c = sqrt(pow(horn_radius, 2) - pow(a1, 2));
   float a2 = sqrt(pow(arm_length, 2) - pow(c, 2));
   return a1 + a2;
+  } else {
+    // Conversion in rack and pinion gripper [circumference = r * theta]
+    return gripper_map[name].pitch_radius * angular_position;
+  }
 }
 
 bool InterbotixDriverXS::retrieve_motor_configs(
@@ -893,6 +904,8 @@ bool InterbotixDriverXS::retrieve_motor_configs(
     Gripper gripper;
     // load all info from the single_gripper node into the Griper struct, substituting the default
     //  values if not given the value
+    gripper.type = single_gripper["type"].as<std::string>("swing_arm");
+    gripper.pitch_radius = single_gripper["pitch_radius"].as<float>(0.0127);
     gripper.horn_radius = single_gripper["horn_radius"].as<float>(0.014);
     gripper.arm_length = single_gripper["arm_length"].as<float>(0.024);
     gripper.left_finger = single_gripper["left_finger"].as<std::string>("left_finger");

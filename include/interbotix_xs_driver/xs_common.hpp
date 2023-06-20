@@ -153,8 +153,12 @@ struct Gripper
 {
   // Index in the published JointState message 'name' list belonging to the gripper motor
   size_t js_index;
+  // Type of gripper mechanism (i.e swing arm or rack and pinion)
+  std::string type;
   // Distance [m] from the motor horn's center to its edge
   float horn_radius;
+  // Distance [m] from the pinion's center to its circumference
+  float pitch_radius;
   // Distance [m] from the edge of the motor horn to a finger
   float arm_length;
   // Name of the 'left_finger' joint as defined in the URDF (if present)

@@ -717,8 +717,8 @@ bool InterbotixDriverXS::get_joint_states(
           robot_positions.at(get_js_index(joint_name))
           - gripper_map[joint_name].calibration_offset);
         double pos = convert_angular_position_to_linear(
-          joint_name,
-          positions->at(get_js_index(joint_name))+gripper_map[joint_name].calibration_offset);
+            joint_name,
+            positions->at(get_js_index(joint_name)) + gripper_map[joint_name].calibration_offset);
         positions->push_back(pos);
         positions->push_back(-pos);
       } else {
@@ -905,6 +905,10 @@ bool InterbotixDriverXS::retrieve_motor_configs(
     // load all info from the single_gripper node into the Griper struct, substituting the default
     //  values if not given the value
     gripper.type = single_gripper["type"].as<std::string>("swing_arm");
+    if (!(gripper.type == "swing_arm" || gripper.type == "rack_and_pinion")) {
+      XSLOG_FATAL("Invalid Gripper Type: %s", gripper.type.c_str());
+      return false;
+    }
     gripper.pitch_radius = single_gripper["pitch_radius"].as<float>(0.0127);
     gripper.horn_radius = single_gripper["horn_radius"].as<float>(0.014);
     gripper.arm_length = single_gripper["arm_length"].as<float>(0.024);

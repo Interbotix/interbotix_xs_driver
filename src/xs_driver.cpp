@@ -768,7 +768,7 @@ float InterbotixDriverXS::convert_linear_position_to_radian(
   const std::string & name,
   const float & linear_position)
 {
-  // Check the type of gripper mechanism
+  // check the type of gripper mechanism
   if (gripper_map[name].type == gripper_type::SWING_ARM) {
     float half_dist = linear_position / 2.0;
     float arm_length = gripper_map[name].arm_length;
@@ -780,7 +780,7 @@ float InterbotixDriverXS::convert_linear_position_to_radian(
       pow(half_dist, 2) - \
       pow(arm_length, 2)) / (2 * horn_radius * half_dist));
   } else {
-    // Conversion for rack and pinion
+    // conversion for rack and pinion [circumference = r * theta]
     return linear_position / 2 * gripper_map[name].pitch_radius;
   }
 }
@@ -797,7 +797,7 @@ float InterbotixDriverXS::convert_angular_position_to_linear(
     float a2 = sqrt(pow(arm_length, 2) - pow(c, 2));
     return a1 + a2;
   } else {
-    // Conversion in rack and pinion gripper [circumference = r * theta]
+    // conversion for rack and pinion [circumference = r * theta]
     return gripper_map[name].pitch_radius * angular_position;
   }
 }

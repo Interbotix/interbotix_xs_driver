@@ -113,6 +113,14 @@ inline static const std::string TIME = "time";
 
 }  // profile
 
+namespace gripper_type
+{
+
+// constants for command types
+inline static const std::string SWING_ARM = "swing_arm";
+inline static const std::string RACK_N_PINION = "rack_and_pinion";
+
+}
 
 // Struct to hold multiple joints that represent a group
 struct JointGroup

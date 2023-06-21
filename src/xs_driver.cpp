@@ -769,7 +769,7 @@ float InterbotixDriverXS::convert_linear_position_to_radian(
   const float & linear_position)
 {
   // Check the type of gripper mechanism
-  if (gripper_map[name].type == "swing_arm") {
+  if (gripper_map[name].type == gripper_type::SWING_ARM) {
     float half_dist = linear_position / 2.0;
     float arm_length = gripper_map[name].arm_length;
     float horn_radius = gripper_map[name].horn_radius;
@@ -789,7 +789,7 @@ float InterbotixDriverXS::convert_angular_position_to_linear(
   const std::string & name,
   const float & angular_position)
 {
-  if (gripper_map[name].type == "swing_arm") {
+  if (gripper_map[name].type == gripper_type::SWING_ARM) {
     float arm_length = gripper_map[name].arm_length;
     float horn_radius = gripper_map[name].horn_radius;
     float a1 = horn_radius * sin(angular_position);
@@ -903,8 +903,8 @@ bool InterbotixDriverXS::retrieve_motor_configs(
     Gripper gripper;
     // load all info from the single_gripper node into the Griper struct, substituting the default
     //  values if not given the value
-    gripper.type = single_gripper["type"].as<std::string>("swing_arm");
-    if (!(gripper.type == "swing_arm" || gripper.type == "rack_and_pinion")) {
+    gripper.type = single_gripper["type"].as<std::string>(gripper_type::SWING_ARM);
+    if (!(gripper.type == gripper_type::SWING_ARM || gripper.type == gripper_type::RACK_N_PINION)) {
       XSLOG_FATAL("Invalid Gripper Type: %s", gripper.type.c_str());
       return false;
     }

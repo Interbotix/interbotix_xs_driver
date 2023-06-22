@@ -87,7 +87,7 @@ namespace mode
 // Constants for operating modes
 inline static const std::string PWM = "pwm";
 inline static const std::string POSITION = "position";
-inline static const std::string EXT_POSITION = "ext_postition";
+inline static const std::string EXT_POSITION = "ext_position";
 inline static const std::string CURRENT_BASED_POSITION = "current_based_position";
 inline static const std::string LINEAR_POSITION = "linear_position";
 inline static const std::string VELOCITY = "velocity";
@@ -113,6 +113,14 @@ inline static const std::string TIME = "time";
 
 }  // profile
 
+namespace gripper_type
+{
+
+// constants for gripper types
+inline static const std::string SWING_ARM = "swing_arm";
+inline static const std::string RACK_N_PINION = "rack_and_pinion";
+
+}
 
 // Struct to hold multiple joints that represent a group
 struct JointGroup
@@ -153,14 +161,22 @@ struct Gripper
 {
   // Index in the published JointState message 'name' list belonging to the gripper motor
   size_t js_index;
+  // Type of gripper mechanism (i.e swing arm or rack and pinion)
+  std::string type;
   // Distance [m] from the motor horn's center to its edge
   float horn_radius;
+  // Distance [m] from the pinion's center to its circumference
+  float pitch_radius;
   // Distance [m] from the edge of the motor horn to a finger
   float arm_length;
   // Name of the 'left_finger' joint as defined in the URDF (if present)
   std::string left_finger;
   // Name of the 'right_finger' joint as defined in the URDF (if present)
   std::string right_finger;
+  // Calibration offset [rad] for gripper
+  float calibration_offset;
+  // Whether or not the gripper should be calibrated
+  bool calibrate;
 };
 
 // Struct to hold a desired register value for a given motor

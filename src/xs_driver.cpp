@@ -48,7 +48,7 @@ InterbotixDriverXS::InterbotixDriverXS(
     "Using Interbotix X-Series Driver Version: 'v%d.%d.%d'.",
     VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
   logging::set_level(logging_level);
-  XSLOG_INFO("Using logging level '%s'.", logging_level.c_str());
+  XSLOG_INFO("Using logging level: '%s'.", logging_level.c_str());
   if (!retrieve_motor_configs(filepath_motor_configs, filepath_mode_configs)) {
     throw std::runtime_error("Failed due to bad config.");
   }
@@ -78,7 +78,8 @@ InterbotixDriverXS::InterbotixDriverXS(
   init_controlItems();
   init_workbench_handlers();
   init_operating_modes();
-  init_controlItems();
+  XSLOG_INFO("Running Gripper Calibration Next");
+  calibrate_grippers();
   XSLOG_INFO("Interbotix X-Series Driver is up!");
 }
 
@@ -211,7 +212,7 @@ bool InterbotixDriverXS::set_joint_operating_mode(
         "Profile_Acceleration",
         profile_acceleration);
       XSLOG_DEBUG(
-        "ID: %d, set mode ext_postition, pv=%i, pa=%i.",
+        "ID: %d, set mode ext_position, pv=%i, pa=%i.",
         motor_map[motor_name].motor_id, profile_velocity, profile_acceleration);
     } else if (mode == mode::VELOCITY) {
       // set velocity control mode if the mode is velocity
@@ -309,7 +310,7 @@ bool InterbotixDriverXS::torque_enable(
       name.c_str());
     return false;
   } else {
-    // inavlid cmd_type
+    // invalid cmd_type
     XSLOG_ERROR(
       "Invalid command for argument 'cmd_type' while torquing joints.");
     return false;
@@ -711,13 +712,32 @@ bool InterbotixDriverXS::get_joint_states(
   for (const auto & joint_name : get_group_info(name)->joint_names) {
     // iterate through each joint in group, reading pos, vel, and eff
     if (positions) {
-      positions->push_back(robot_positions.at(get_js_index(joint_name)));
+      if (is_motor_gripper(joint_name)) {
+        positions->push_back(
+          robot_positions.at(get_js_index(joint_name)) - \
+          gripper_map[joint_name].calibration_offset);
+        double pos = convert_angular_position_to_linear(
+          joint_name,
+          positions->at(get_js_index(joint_name)) + gripper_map[joint_name].calibration_offset);
+        positions->push_back(pos);
+        positions->push_back(-pos);
+      } else {
+        positions->push_back(robot_positions.at(get_js_index(joint_name)));
+      }
     }
     if (velocities) {
       velocities->push_back(robot_velocities.at(get_js_index(joint_name)));
+      if (is_motor_gripper(joint_name)) {
+        velocities->push_back(0.0);
+        velocities->push_back(0.0);
+      }
     }
     if (effort) {
       effort->push_back(robot_efforts.at(get_js_index(joint_name)));
+      if (is_motor_gripper(joint_name)) {
+        effort->push_back(0.0);
+        effort->push_back(0.0);
+      }
     }
   }
   return true;
@@ -748,28 +768,38 @@ float InterbotixDriverXS::convert_linear_position_to_radian(
   const std::string & name,
   const float & linear_position)
 {
-  float half_dist = linear_position / 2.0;
-  float arm_length = gripper_map[name].arm_length;
-  float horn_radius = gripper_map[name].horn_radius;
+  // check the type of gripper mechanism
+  if (gripper_map[name].type == gripper_type::SWING_ARM) {
+    float half_dist = linear_position / 2.0;
+    float arm_length = gripper_map[name].arm_length;
+    float horn_radius = gripper_map[name].horn_radius;
 
-  // (pi / 2) - acos(horn_rad^2 + (pos / 2)^2 - arm_length^2) / (2 * horn_rad * (pos / 2))
-  return 3.14159 / 2.0 - \
-         acos(
-    (pow(horn_radius, 2) + \
-    pow(half_dist, 2) - \
-    pow(arm_length, 2)) / (2 * horn_radius * half_dist));
+    // (pi / 2) - acos(horn_rad^2 + (pos / 2)^2 - arm_length^2) / (2 * horn_rad * (pos / 2))
+    return 3.14159 / 2.0 - acos(
+      (pow(horn_radius, 2) + \
+      pow(half_dist, 2) - \
+      pow(arm_length, 2)) / (2 * horn_radius * half_dist));
+  } else {
+    // conversion for rack and pinion [circumference = r * theta]
+    return linear_position / 2 * gripper_map[name].pitch_radius;
+  }
 }
 
 float InterbotixDriverXS::convert_angular_position_to_linear(
   const std::string & name,
   const float & angular_position)
 {
-  float arm_length = gripper_map[name].arm_length;
-  float horn_radius = gripper_map[name].horn_radius;
-  float a1 = horn_radius * sin(angular_position);
-  float c = sqrt(pow(horn_radius, 2) - pow(a1, 2));
-  float a2 = sqrt(pow(arm_length, 2) - pow(c, 2));
-  return a1 + a2;
+  if (gripper_map[name].type == gripper_type::SWING_ARM) {
+    float arm_length = gripper_map[name].arm_length;
+    float horn_radius = gripper_map[name].horn_radius;
+    float a1 = horn_radius * sin(angular_position);
+    float c = sqrt(pow(horn_radius, 2) - pow(a1, 2));
+    float a2 = sqrt(pow(arm_length, 2) - pow(c, 2));
+    return a1 + a2;
+  } else {
+    // conversion for rack and pinion [circumference = r * theta]
+    return gripper_map[name].pitch_radius * angular_position;
+  }
 }
 
 bool InterbotixDriverXS::retrieve_motor_configs(
@@ -782,7 +812,9 @@ bool InterbotixDriverXS::retrieve_motor_configs(
     motor_configs = YAML::LoadFile(filepath_motor_configs.c_str());
   } catch (YAML::BadFile & error) {
     // if file is not found or a bad format, shut down
-    XSLOG_FATAL("Motor Config file was not found or has a bad format. Shutting down...");
+    XSLOG_FATAL(
+      "Motor Config file at '%s' was not found or has a bad format. Shutting down...",
+      filepath_motor_configs.c_str());
     XSLOG_FATAL("YAML Error: '%s'", error.what());
     return false;
   }
@@ -803,7 +835,8 @@ bool InterbotixDriverXS::retrieve_motor_configs(
   } catch (YAML::BadFile & error) {
     // if file is not found or a bad format, shut down
     XSLOG_FATAL(
-      "Mode Config file was not found or has a bad format. Shutting down...");
+      "Mode Config file at '%s' was not found or has a bad format. Shutting down...",
+      filepath_mode_configs.c_str());
     XSLOG_FATAL(
       "YAML Error: '%s'",
       error.what());
@@ -870,10 +903,18 @@ bool InterbotixDriverXS::retrieve_motor_configs(
     Gripper gripper;
     // load all info from the single_gripper node into the Griper struct, substituting the default
     //  values if not given the value
+    gripper.type = single_gripper["type"].as<std::string>(gripper_type::SWING_ARM);
+    if (!(gripper.type == gripper_type::SWING_ARM || gripper.type == gripper_type::RACK_N_PINION)) {
+      XSLOG_FATAL("Invalid Gripper Type: %s", gripper.type.c_str());
+      return false;
+    }
+    gripper.pitch_radius = single_gripper["pitch_radius"].as<float>(0.0127);
     gripper.horn_radius = single_gripper["horn_radius"].as<float>(0.014);
     gripper.arm_length = single_gripper["arm_length"].as<float>(0.024);
     gripper.left_finger = single_gripper["left_finger"].as<std::string>("left_finger");
     gripper.right_finger = single_gripper["right_finger"].as<std::string>("right_finger");
+    gripper.calibrate = single_gripper["calibrate"].as<bool>(true);
+    gripper.calibration_offset = 0.0;
     gripper_map.insert({gripper_name, gripper});
   }
 
@@ -1023,6 +1064,7 @@ bool InterbotixDriverXS::ping_motors()
       dxl_wb.torque(motor_state.motor_id, false);
     }
     if (found_all_motors) {
+      XSLOG_INFO("Successfully pinged all motors specified in the motor_config file.");
       return found_all_motors;
     }
   }
@@ -1268,6 +1310,41 @@ void InterbotixDriverXS::init_operating_modes()
     if (!single_joint["torque_enable"].as<bool>(TORQUE_ENABLE)) {
       torque_enable(cmd_type::SINGLE, single_name, false);
     }
+  }
+}
+
+void InterbotixDriverXS::calibrate_grippers()
+{
+  // loop through each gripper in the gripper_map
+  for (auto & [gripper_name, gripper] : gripper_map) {
+    // initialize variables to keep track of gripper position, set last to a dummy value
+    float curr_gripper_pos, last_gripper_pos = std::numeric_limits<float>::max();
+    // skip gripper if we shouldn't calibrate it
+    if (!gripper.calibrate) {
+      continue;
+    }
+    XSLOG_DEBUG("Calibrating gripper '%s'...", gripper_name.c_str());
+    // get initial gripper position
+    get_joint_state(gripper_name, &curr_gripper_pos, NULL, NULL);
+    // write negative PWM to the gripper to close it
+    write_joint_command(gripper_name, -150.0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    // keep checking the gripper position until it stops moving between loop iterations
+    while (std::abs(curr_gripper_pos - last_gripper_pos) > 0.0001) {
+      last_gripper_pos = curr_gripper_pos;
+      get_joint_state(gripper_name, &curr_gripper_pos, NULL, NULL);
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    // write 0.0 PWM to the gripper to stop it from closing
+    write_joint_command(gripper_name, 0.0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    get_joint_state(gripper_name, &curr_gripper_pos, NULL, NULL);
+    // set calibration offset to the current gripper position
+    gripper.calibration_offset = curr_gripper_pos;
+    XSLOG_DEBUG(
+      "Calibrated gripper '%s' to have offset %f rad.",
+      gripper_name.c_str(),
+      gripper.calibration_offset);
   }
 }
 

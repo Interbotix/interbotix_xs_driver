@@ -53,8 +53,8 @@ class InterbotixDriverXS
 {
 public:
   /// @brief Constructor for the InterbotixDriverXS
-  /// @param filepath_motor_configs absolute filepah to the motor configuration file
-  /// @param filepath_mode_configs absolute filepah to the modes configuration file
+  /// @param filepath_motor_configs absolute filepath to the motor configuration file
+  /// @param filepath_mode_configs absolute filepath to the modes configuration file
   /// @param write_eeprom_on_startup whether or not to write configs to EEPROM on startup,
   ///   defaults to `true`
   /// @param logging_level the logging level of the xs_logging utility; defaults to "INFO"
@@ -252,7 +252,7 @@ public:
 
   /// @brief Convert angular position into the linear distance from one gripper finger to the
   ///   center of the gripper servo horn
-  /// @param name name of the gripper sevo to command
+  /// @param name name of the gripper servo to command
   /// @param angular_position desired gripper angular position [rad]
   /// @returns linear position [m] from a gripper finger to the center of the gripper servo horn
   float convert_angular_position_to_linear(
@@ -425,6 +425,9 @@ private:
   /// @brief Loads a 'mode_configs' yaml file containing desired operating modes and sets up the
   ///   motors accordingly
   void init_operating_modes();
+
+  /// @brief Calibrates the gripper motors
+  void calibrate_grippers();
 
   /// @brief Updates the joint states from the DYNAMIXELs
   void read_joint_states();

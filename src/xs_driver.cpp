@@ -28,6 +28,7 @@
 
 #include "interbotix_xs_driver/xs_driver.hpp"
 
+#include <limits>
 #include <string>
 #include <vector>
 #include <memory>
@@ -78,7 +79,6 @@ InterbotixDriverXS::InterbotixDriverXS(
   init_controlItems();
   init_workbench_handlers();
   init_operating_modes();
-  XSLOG_INFO("Running Gripper Calibration Next");
   calibrate_grippers();
   XSLOG_INFO("Interbotix X-Series Driver is up!");
 }
@@ -905,7 +905,9 @@ bool InterbotixDriverXS::retrieve_motor_configs(
     //  values if not given the value
     gripper.type = single_gripper["type"].as<std::string>(gripper_type::SWING_ARM);
     if (!(gripper.type == gripper_type::SWING_ARM || gripper.type == gripper_type::RACK_N_PINION)) {
-      XSLOG_FATAL("Invalid Gripper Type: %s", gripper.type.c_str());
+      XSLOG_FATAL(
+        "Invalid Gripper Type: '%s'. Options are: 'swing_arm', 'rack_and_pinion'",
+        gripper.type.c_str());
       return false;
     }
     gripper.pitch_radius = single_gripper["pitch_radius"].as<float>(0.0127);
@@ -913,7 +915,7 @@ bool InterbotixDriverXS::retrieve_motor_configs(
     gripper.arm_length = single_gripper["arm_length"].as<float>(0.024);
     gripper.left_finger = single_gripper["left_finger"].as<std::string>("left_finger");
     gripper.right_finger = single_gripper["right_finger"].as<std::string>("right_finger");
-    gripper.calibrate = single_gripper["calibrate"].as<bool>(true);
+    gripper.calibrate = single_gripper["calibrate"].as<bool>(false);
     gripper.calibration_offset = 0.0;
     gripper_map.insert({gripper_name, gripper});
   }
@@ -1319,8 +1321,8 @@ void InterbotixDriverXS::calibrate_grippers()
   for (auto & [gripper_name, gripper] : gripper_map) {
     // initialize variables to keep track of gripper position, set last to a dummy value
     float curr_gripper_pos, last_gripper_pos = std::numeric_limits<float>::max();
-    // skip gripper if we shouldn't calibrate it
-    if (!gripper.calibrate) {
+    // skip gripper if we shouldn't calibrate it (configured not to or not a rack-n-pinion gripper)
+    if (!gripper.calibrate || gripper.type != gripper_type::RACK_N_PINION) {
       continue;
     }
     XSLOG_DEBUG("Calibrating gripper '%s'...", gripper_name.c_str());

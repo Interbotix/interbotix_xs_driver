@@ -116,7 +116,7 @@ inline static const std::string TIME = "time";
 namespace gripper_type
 {
 
-// constants for command types
+// constants for gripper types
 inline static const std::string SWING_ARM = "swing_arm";
 inline static const std::string RACK_N_PINION = "rack_and_pinion";
 

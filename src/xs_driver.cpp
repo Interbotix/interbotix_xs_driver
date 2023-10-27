@@ -535,6 +535,11 @@ bool InterbotixDriverXS::write_joint_command(
       // convert from linear position if necessary
       command = convert_linear_position_to_radian(name, command);
     }
+
+    // get mech red value
+    int32_t j_reduction = js_mech_reduction_map[get_group_info(name)->joint_ids.at(i)];
+    command = command * j_reduction;
+
     XSLOG_DEBUG(
       "ID: %d, writing %s command %f.",
       motor_map[name].motor_id, mode.c_str(), command);

@@ -416,7 +416,6 @@ bool InterbotixDriverXS::write_commands(
       }
 
       // get mech red value
-//      int32_t j_reduction = motor_map[get_group_info(name)->joint_names.at(i)].mech_red;
       int32_t j_reduction = js_mech_reduction_map[get_group_info(name)->joint_ids.at(i)];
 
       // translate from position to command value - INCLUDE MECH REDUCTION
@@ -844,10 +843,12 @@ bool InterbotixDriverXS::retrieve_motor_configs(
     // extract mech reduction from node
     uint32_t mech_red = (uint32_t)single_motor["Mech_Reduction"].as<uint32_t>();
     js_mech_reduction_map[id] = mech_red;
+    XSLOG_FATAL(
+      "reading mech reduction, motor id: %i, red: %i",
+      id, mech_red);
 
     // add the motor to the motor_map with it's ID, pos as the default opmode, vel as default
-    //  profile and mechanical reduction
-//    motor_map.insert({motor_name, {id, mech_red, mode::POSITION, profile::VELOCITY}});
+    //  profile
     motor_map.insert({motor_name, {id, mode::POSITION, profile::VELOCITY}});
     for (
       YAML::const_iterator info_itr = single_motor.begin();

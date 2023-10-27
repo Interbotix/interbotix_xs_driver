@@ -537,7 +537,7 @@ bool InterbotixDriverXS::write_joint_command(
     }
 
     // get mech red value
-    int32_t j_reduction = js_mech_reduction_map[get_group_info(name)->joint_ids.at(i)];
+    int32_t j_reduction = js_mech_reduction_map[motor_map[name].motor_id];
     command = command * j_reduction;
 
     XSLOG_DEBUG(

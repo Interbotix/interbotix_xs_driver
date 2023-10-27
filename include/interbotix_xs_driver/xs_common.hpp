@@ -138,6 +138,8 @@ struct MotorState
 {
   // Dynamixel ID of the motor
   uint8_t motor_id;
+//  // Mech Red of the motor
+//  uint32_t mech_red;
   // Operating Mode of the motor
   std::string mode;
   // Profile Type ('velocity' or 'time') for the motor

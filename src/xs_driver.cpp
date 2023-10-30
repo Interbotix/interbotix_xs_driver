@@ -78,8 +78,8 @@ InterbotixDriverXS::InterbotixDriverXS(
 
   init_controlItems();
   init_workbench_handlers();
-  init_operating_modes();
   calibrate_grippers();
+  init_operating_modes();
   XSLOG_INFO("Interbotix X-Series Driver is up!");
 }
 
@@ -714,8 +714,8 @@ bool InterbotixDriverXS::get_joint_states(
     if (positions) {
       if (is_motor_gripper(joint_name)) {
         positions->push_back(
-          robot_positions.at(get_js_index(joint_name)) - \
-          gripper_map[joint_name].calibration_offset);
+          robot_positions.at(get_js_index(joint_name)));
+          // gripper_map[joint_name].calibration_offset);
         double pos = convert_angular_position_to_linear(
           joint_name,
           positions->at(get_js_index(joint_name)));
@@ -781,7 +781,7 @@ float InterbotixDriverXS::convert_linear_position_to_radian(
       pow(arm_length, 2)) / (2 * horn_radius * half_dist));
   } else {
     // conversion for rack and pinion [circumference = r * theta]
-    return linear_position / 2 * gripper_map[name].pitch_radius;
+    return linear_position / (2 * gripper_map[name].pitch_radius);
   }
 }
 
@@ -1320,6 +1320,7 @@ void InterbotixDriverXS::calibrate_grippers()
   // loop through each gripper in the gripper_map
   for (auto & [gripper_name, gripper] : gripper_map) {
     // initialize variables to keep track of gripper position, set last to a dummy value
+    set_joint_operating_mode(gripper_name, "pwm");
     float curr_gripper_pos, last_gripper_pos = std::numeric_limits<float>::max();
     // skip gripper if we shouldn't calibrate it (configured not to or not a rack-n-pinion gripper)
     if (!gripper.calibrate || gripper.type != gripper_type::RACK_N_PINION) {
@@ -1329,7 +1330,7 @@ void InterbotixDriverXS::calibrate_grippers()
     // get initial gripper position
     get_joint_state(gripper_name, &curr_gripper_pos, NULL, NULL);
     // write negative PWM to the gripper to close it
-    write_joint_command(gripper_name, -150.0);
+    write_joint_command(gripper_name, -250.0);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     // keep checking the gripper position until it stops moving between loop iterations
     while (std::abs(curr_gripper_pos - last_gripper_pos) > 0.0001) {

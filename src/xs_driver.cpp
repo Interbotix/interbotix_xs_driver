@@ -715,7 +715,6 @@ bool InterbotixDriverXS::get_joint_states(
       if (is_motor_gripper(joint_name)) {
         positions->push_back(
           robot_positions.at(get_js_index(joint_name)));
-          // gripper_map[joint_name].calibration_offset);
         double pos = convert_angular_position_to_linear(
           joint_name,
           positions->at(get_js_index(joint_name)));

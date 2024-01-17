@@ -852,7 +852,9 @@ bool InterbotixDriverXS::retrieve_motor_configs(
         XSLOG_DEBUG("Reading mech reduction, motor id: %i, red: %i", id, mech_red);
     }
     catch (const std::exception& e) {
-        XSLOG_ERROR("Could not read the Mech_Reduction field in the motor configs. Motor ID: %i.", id)
+        XSLOG_ERROR("Could not read the Mech_Reduction field in the motor configs. Motor ID: %i.", id);
+        XSLOG_FATAL("YAML Error: '%s'", e.what());
+        return false;
     }
 
     // add the motor to the motor_map with it's ID, pos as the default opmode, vel as default

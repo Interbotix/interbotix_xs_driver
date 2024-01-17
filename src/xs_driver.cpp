@@ -846,11 +846,14 @@ bool InterbotixDriverXS::retrieve_motor_configs(
     uint8_t id = (uint8_t)single_motor["ID"].as<int32_t>();
 
     // extract mech reduction from node
-    uint32_t mech_red = (uint32_t)single_motor["Mech_Reduction"].as<uint32_t>();
-    js_mech_reduction_map[id] = mech_red;
-    XSLOG_FATAL(
-      "reading mech reduction, motor id: %i, red: %i",
-      id, mech_red);
+    try {
+        uint32_t mech_red = (uint32_t)single_motor["Mech_Reduction"].as<uint32_t>();
+        js_mech_reduction_map[id] = mech_red;
+        XSLOG_DEBUG("Reading mech reduction, motor id: %i, red: %i", id, mech_red);
+    }
+    catch (const std::exception& e) {
+        XSLOG_ERROR("Could not read the Mech_Reduction field in the motor configs. Motor ID: %i.", id)
+    }
 
     // add the motor to the motor_map with it's ID, pos as the default opmode, vel as default
     //  profile

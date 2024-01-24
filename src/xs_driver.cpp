@@ -1247,11 +1247,12 @@ void InterbotixDriverXS::init_operating_modes()
         // [0/false]: Normal Mode: CCW(Positive), CW(Negative)
         // [1/true]: Reverse Mode: CCW(Negative), CW(Positive)
         // This mode dictates how to calculate the homing offset of the shadow motor
-        std::bitset<8> shadow_drive_mode_bitset = shadow_drive_mode;
         int32_t homing_offset;
-        if (shadow_drive_mode_bitset.test(0)) {
+        if ((shadow_drive_mode & 0x01) == 0) {
+          // Normal Mode
           homing_offset = master_position - shadow_position;
         } else {
+          // Reverse Mode
           homing_offset = shadow_position - master_position;
         }
         dxl_wb.itemWrite(motor_map[shadow_name].motor_id, "Homing_Offset", homing_offset);

@@ -415,13 +415,16 @@ bool InterbotixDriverXS::write_commands(
           commands.at(i));
       }
 
-      // get mech red value
-      int32_t j_reduction = js_mech_reduction_map[get_group_info(name)->joint_ids.at(i)];
+      // Apply mechanical reduction to the angular values
+      float j_reduction = js_mech_reduction_map[get_group_info(name)->joint_ids.at(i)];
+      for (size_t i{0}; i < commands.size(); i++) {
+        commands.at(i) = commands.at(i) / j_reduction;
+      }
 
-      // translate from position to command value - INCLUDE MECH REDUCTION
+      // translate from position to command value
       dynamixel_commands[i] = dxl_wb.convertRadian2Value(
         get_group_info(name)->joint_ids.at(i),
-        (commands.at(i) * j_reduction));
+        commands.at(i));
       XSLOG_DEBUG(
         "ID: %d, writing %s command %d.",
         get_group_info(name)->joint_ids.at(i),
@@ -536,9 +539,9 @@ bool InterbotixDriverXS::write_joint_command(
       command = convert_linear_position_to_radian(name, command);
     }
 
-    // get mech red value
-    int32_t j_reduction = js_mech_reduction_map[motor_map[name].motor_id];
-    command = command * j_reduction;
+    // Apply mechanical reduction to the angular values
+    float j_reduction = js_mech_reduction_map[motor_map[name].motor_id];
+    command = command / j_reduction;
 
     XSLOG_DEBUG(
       "ID: %d, writing %s command %f.",
@@ -847,7 +850,7 @@ bool InterbotixDriverXS::retrieve_motor_configs(
 
     // extract mech reduction from node
     try {
-        uint32_t mech_red = (uint32_t)single_motor["Mech_Reduction"].as<uint32_t>();
+        float mech_red = (float)single_motor["Mech_Reduction"].as<float>();
         js_mech_reduction_map[id] = mech_red;
         XSLOG_DEBUG("Reading mech reduction, motor id: %i, red: %i", id, mech_red);
     }
@@ -1368,6 +1371,11 @@ void InterbotixDriverXS::read_joint_states()
       }
       velocity = dxl_wb.convertValue2Velocity(id, get_velocity.at(index));
       position = dxl_wb.convertValue2Radian(id, get_position.at(index));
+
+      // Apply mechanical reduction (protocol 2.0, syncRead)
+      float j_reduction = js_mech_reduction_map[id]
+      position = position * j_reduction;
+
       robot_efforts.push_back(effort);
       robot_velocities.push_back(velocity);
       robot_positions.push_back(position);
@@ -1399,8 +1407,9 @@ void InterbotixDriverXS::read_joint_states()
       float velocity = dxl_wb.convertValue2Velocity(id, velocity_raw);
       float position = dxl_wb.convertValue2Radian(id, position_raw);
 
-      // Apply mechanical reduction
-      position = position / js_mech_reduction_map[id];
+      // Apply mechanical reduction (protocol 1.0)
+      float j_reduction = js_mech_reduction_map[id]
+      position = position * j_reduction;
 
       robot_efforts.push_back(effort);
       robot_velocities.push_back(velocity);

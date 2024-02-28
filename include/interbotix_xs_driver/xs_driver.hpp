@@ -373,6 +373,9 @@ private:
   // Dictionary mapping the name of a joint with its position in the JointState 'name' list
   std::unordered_map<std::string, size_t> js_index_map;
 
+  // Dictionary mapping the ID of a joint with its mechanical reduction
+  std::unordered_map<int32_t, float> js_mech_reduction_map;
+
   // Vector containing the robot joint positions in [rad] at the last update
   std::vector<float> robot_positions;
 

@@ -414,6 +414,13 @@ bool InterbotixDriverXS::write_commands(
           get_group_info(name)->joint_names.at(i),
           commands.at(i));
       }
+
+      // Apply mechanical reduction to the angular values
+      float j_reduction = js_mech_reduction_map[get_group_info(name)->joint_ids.at(i)];
+      for (size_t i{0}; i < commands.size(); i++) {
+        commands.at(i) = commands.at(i) / j_reduction;
+      }
+
       // translate from position to command value
       dynamixel_commands[i] = dxl_wb.convertRadian2Value(
         get_group_info(name)->joint_ids.at(i),
@@ -531,6 +538,11 @@ bool InterbotixDriverXS::write_joint_command(
       // convert from linear position if necessary
       command = convert_linear_position_to_radian(name, command);
     }
+
+    // Apply mechanical reduction to the angular values
+    float j_reduction = js_mech_reduction_map[motor_map[name].motor_id];
+    command = command / j_reduction;
+
     XSLOG_DEBUG(
       "ID: %d, writing %s command %f.",
       motor_map[name].motor_id, mode.c_str(), command);
@@ -835,6 +847,19 @@ bool InterbotixDriverXS::retrieve_motor_configs(
     YAML::Node single_motor = all_motors[motor_name];
     // extract ID from node
     uint8_t id = (uint8_t)single_motor["ID"].as<int32_t>();
+
+    // extract mech reduction from node
+    try {
+        float mech_red = (float)single_motor["Mech_Reduction"].as<float>();
+        js_mech_reduction_map[id] = mech_red;
+        XSLOG_DEBUG("Reading mech reduction, motor id: %i, red: %i", id, mech_red);
+    }
+    catch (const std::exception& e) {
+        XSLOG_ERROR("Could not read the Mech_Reduction field in the motor configs. Motor ID: %i.", id);
+        XSLOG_FATAL("YAML Error: '%s'", e.what());
+        return false;
+    }
+
     // add the motor to the motor_map with it's ID, pos as the default opmode, vel as default
     //  profile
     motor_map.insert({motor_name, {id, mode::POSITION, profile::VELOCITY}});
@@ -846,7 +871,7 @@ bool InterbotixDriverXS::retrieve_motor_configs(
       // iterate through the single_motor node
       // save all registers that are not ID or Baud_Rate
       std::string reg = info_itr->first.as<std::string>();
-      if (reg != "ID" && reg != "Baud_Rate") {
+      if (reg != "ID" && reg != "Baud_Rate" && reg != "Mech_Reduction") {
         int32_t value = info_itr->second.as<int32_t>();
         MotorRegVal motor_info = {id, reg, value};
         motor_info_vec.push_back(motor_info);
@@ -1346,6 +1371,11 @@ void InterbotixDriverXS::read_joint_states()
       }
       velocity = dxl_wb.convertValue2Velocity(id, get_velocity.at(index));
       position = dxl_wb.convertValue2Radian(id, get_position.at(index));
+
+      // Apply mechanical reduction (protocol 2.0, syncRead)
+      float j_reduction = js_mech_reduction_map[id]
+      position = position * j_reduction;
+
       robot_efforts.push_back(effort);
       robot_velocities.push_back(velocity);
       robot_positions.push_back(position);
@@ -1376,6 +1406,10 @@ void InterbotixDriverXS::read_joint_states()
       float effort = dxl_wb.convertValue2Load(effort_raw);
       float velocity = dxl_wb.convertValue2Velocity(id, velocity_raw);
       float position = dxl_wb.convertValue2Radian(id, position_raw);
+
+      // Apply mechanical reduction (protocol 1.0)
+      float j_reduction = js_mech_reduction_map[id]
+      position = position * j_reduction;
 
       robot_efforts.push_back(effort);
       robot_velocities.push_back(velocity);

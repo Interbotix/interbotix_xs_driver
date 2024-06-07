@@ -777,6 +777,7 @@ bool InterbotixDriverXS::retrieve_motor_configs(
   std::string filepath_mode_configs)
 {
   // read motor_configs param
+  XSLOG_INFO("Retrieving motor config file at '%s'.", filepath_motor_configs.c_str());
   try {
     // try to load motor_configs yaml file
     motor_configs = YAML::LoadFile(filepath_motor_configs.c_str());
@@ -794,6 +795,7 @@ bool InterbotixDriverXS::retrieve_motor_configs(
   }
 
   // read mode_configs param
+  XSLOG_INFO("Retrieving mode config file at '%s'.", filepath_mode_configs.c_str());
   try {
     // try to load mode_configs yaml file
     mode_configs = YAML::LoadFile(filepath_mode_configs.c_str());

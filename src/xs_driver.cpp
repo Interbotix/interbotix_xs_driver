@@ -1196,6 +1196,10 @@ void InterbotixDriverXS::init_operating_modes()
         if (shadow_name == master_name) {
           continue;
         }
+        XSLOG_DEBUG(
+          "Calibrating motor pair with IDs %d, %d.",
+          motor_map[master_name].motor_id,
+          motor_map[shadow_name].motor_id);
         dxl_wb.itemWrite(motor_map[shadow_name].motor_id, "Homing_Offset", 0);
         int32_t shadow_position, shadow_drive_mode;
         dxl_wb.itemRead(motor_map[shadow_name].motor_id, "Present_Position", &shadow_position);
@@ -1204,12 +1208,11 @@ void InterbotixDriverXS::init_operating_modes()
         // [0/false]: Normal Mode: CCW(Positive), CW(Negative)
         // [1/true]: Reverse Mode: CCW(Negative), CW(Positive)
         // This mode dictates how to calculate the homing offset of the shadow motor
-        std::bitset<8> shadow_drive_mode_bitset = shadow_drive_mode;
         int32_t homing_offset;
-        if (shadow_drive_mode_bitset.test(0)) {
-          homing_offset = master_position - shadow_position;
-        } else {
+        if (static_cast<std::bitset<8>>(shadow_drive_mode).test(0)) {
           homing_offset = shadow_position - master_position;
+        } else {
+          homing_offset = master_position - shadow_position;
         }
         dxl_wb.itemWrite(motor_map[shadow_name].motor_id, "Homing_Offset", homing_offset);
       }

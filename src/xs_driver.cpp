@@ -1289,14 +1289,16 @@ void InterbotixDriverXS::read_joint_states()
   std::vector<int32_t> get_position(all_ptr->joint_num, 0);
 
   if (dxl_wb.getProtocolVersion() == 2.0f) {
-    // Checks if data can be sent properly
+    bool syncread_failed = false;
+    // Execute sync read from all pinged DYNAMIXELs
     if (!dxl_wb.syncRead(
         SYNC_READ_HANDLER_FOR_PRESENT_POSITION_VELOCITY_CURRENT,
         all_ptr->joint_ids.data(),
         all_ptr->joint_num,
         &log))
     {
-      XSLOG_ERROR("%s", log);
+      XSLOG_ERROR("Failed syncRead: %s", log);
+      syncread_failed = true;
     }
 
     // Gets present current of all servos
@@ -1309,7 +1311,8 @@ void InterbotixDriverXS::read_joint_states()
         get_current.data(),
         &log))
     {
-      XSLOG_ERROR("%s", log);
+      XSLOG_ERROR("Failed getSyncReadData for Present_Current: %s", log);
+      syncread_failed = true;
     }
 
     // Gets present velocity of all servos
@@ -1322,7 +1325,8 @@ void InterbotixDriverXS::read_joint_states()
         get_velocity.data(),
         &log))
     {
-      XSLOG_ERROR("%s", log);
+      XSLOG_ERROR("Failed getSyncReadData for Present_Velocity: %s", log);
+      syncread_failed = true;
     }
 
     // Gets present position of all servos
@@ -1335,7 +1339,21 @@ void InterbotixDriverXS::read_joint_states()
         get_position.data(),
         &log))
     {
-      XSLOG_ERROR("%s", log);
+      XSLOG_ERROR("Failed getSyncReadData for Present_Position: %s", log);
+      syncread_failed = true;
+    }
+
+    // If syncread failed, check to see what motors we can actually read from. This will provide
+    // some additional troubleshooting information on what motors may have been disconnected or are
+    // unresponsive
+    if (syncread_failed) {
+      for (const auto id : all_ptr->joint_ids) {
+        int32_t value = 0;
+        // Try to read from an item available on all motor models
+        if (!dxl_wb.itemRead(id, "ID", &value)) {
+          XSLOG_ERROR("Failed to read from DYNAMIXEL ID: %d", id);
+        }
+      }
     }
 
     uint8_t index = 0;

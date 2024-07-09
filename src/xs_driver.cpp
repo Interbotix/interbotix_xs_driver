@@ -162,15 +162,35 @@ bool InterbotixDriverXS::set_joint_operating_mode(
     // see https://emanual.robotis.com/docs/en/dxl/x/xm430-w350/#drive-mode for details
     if (!drive_mode_bitset_read.test(2) && profile_type == profile::TIME) {
       // if the 2nd read bit was OFF and profile_type is time, write new Drive_Mode
+      for (auto const & joint_name : sister_map[name]) {
+        dxl_wb.torque(motor_map[joint_name].motor_id, false);
+        XSLOG_DEBUG("ID: %d, torqued off.", motor_map[joint_name].motor_id);
+      }
       dxl_wb.itemWrite(
-        motor_map[motor_name].motor_id, "Drive_Mode", drive_mode_bitset_write.to_ulong());
+        motor_map[motor_name].motor_id,
+        "Drive_Mode",
+        drive_mode_bitset_write.to_ulong());
+      for (auto const & joint_name : sister_map[name]) {
+        dxl_wb.torque(motor_map[joint_name].motor_id, true);
+        XSLOG_DEBUG("ID: %d, torqued on.", motor_map[joint_name].motor_id);
+      }
       XSLOG_DEBUG(
         "ID: %d, write Drive_Mode [%s].",
         motor_map[motor_name].motor_id, drive_mode_bitset_write.to_string().c_str());
     } else if (drive_mode_bitset_read.test(2) && profile_type == profile::VELOCITY) {
       // if the 2nd read bit was ON and profile_type is velocity, write new Drive_Mode
+      for (auto const & joint_name : sister_map[name]) {
+        dxl_wb.torque(motor_map[joint_name].motor_id, false);
+        XSLOG_DEBUG("ID: %d, torqued off.", motor_map[joint_name].motor_id);
+      }
       dxl_wb.itemWrite(
-        motor_map[motor_name].motor_id, "Drive_Mode", drive_mode_bitset_write.to_ulong());
+        motor_map[motor_name].motor_id,
+        "Drive_Mode",
+        drive_mode_bitset_write.to_ulong());
+      for (auto const & joint_name : sister_map[name]) {
+        dxl_wb.torque(motor_map[joint_name].motor_id, true);
+        XSLOG_DEBUG("ID: %d, torqued on.", motor_map[joint_name].motor_id);
+      }
       XSLOG_DEBUG(
         "ID: %d, write Drive_Mode [%s].",
         motor_map[motor_name].motor_id, drive_mode_bitset_write.to_string().c_str());

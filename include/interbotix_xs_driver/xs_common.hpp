@@ -178,6 +178,15 @@ using MapGroup = std::unordered_map<std::string, JointGroup>;
 using MapMotor = std::unordered_map<std::string, MotorState>;
 using MapGripper = std::unordered_map<std::string, Gripper>;
 
+// Enum defining the behavior on joint state read failures
+enum ReadFailureBehavior
+{
+  // Publishes whatever is given from the dxl_wb for all joints states (-pi)
+  PUB_DXL_WB = 0,
+  // Publishes NaN values for all joint states
+  PUB_NAN = 1
+};
+
 }  // namespace interbotix_xs
 
 #endif  // INTERBOTIX_XS_DRIVER__XS_COMMON_HPP_

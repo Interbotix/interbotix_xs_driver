@@ -979,6 +979,24 @@ bool InterbotixDriverXS::retrieve_motor_configs(
     group_map.insert({name, group});
   }
 
+  YAML::Node pub_configs = motor_configs["joint_state_publisher"];
+  read_failure_behavior = static_cast<ReadFailureBehavior>(
+    pub_configs["read_failure_behavior"].as<int>(ReadFailureBehavior::PUB_DXL_WB));
+
+  // Do input validation on read failure behavior parameter
+  if (
+    read_failure_behavior < ReadFailureBehavior::PUB_DXL_WB ||
+    read_failure_behavior > ReadFailureBehavior::PUB_NAN)
+  {
+    // If out of range or invalid, default to PUB_DXL_WB/0
+    XSLOG_ERROR(
+      "Invalid option %d provided to joint_state_publisher.read_failure_behavior. "
+      "Will default to option 0.",
+      read_failure_behavior);
+    read_failure_behavior = ReadFailureBehavior::PUB_DXL_WB;
+  }
+  XSLOG_DEBUG("read_failure_behavior set to %d.", read_failure_behavior);
+
   XSLOG_INFO(
     "Loaded motor configs from '%s'.",
     filepath_motor_configs.c_str());
@@ -1288,8 +1306,8 @@ void InterbotixDriverXS::read_joint_states()
   std::vector<int32_t> get_velocity(all_ptr->joint_num, 0);
   std::vector<int32_t> get_position(all_ptr->joint_num, 0);
 
+  bool read_failed = false;
   if (dxl_wb.getProtocolVersion() == 2.0f) {
-    bool syncread_failed = false;
     // Execute sync read from all pinged DYNAMIXELs
     if (!dxl_wb.syncRead(
         SYNC_READ_HANDLER_FOR_PRESENT_POSITION_VELOCITY_CURRENT,
@@ -1298,7 +1316,7 @@ void InterbotixDriverXS::read_joint_states()
         &log))
     {
       XSLOG_ERROR("Failed syncRead: %s", log);
-      syncread_failed = true;
+      read_failed = true;
     }
 
     // Gets present current of all servos
@@ -1312,7 +1330,7 @@ void InterbotixDriverXS::read_joint_states()
         &log))
     {
       XSLOG_ERROR("Failed getSyncReadData for Present_Current: %s", log);
-      syncread_failed = true;
+      read_failed = true;
     }
 
     // Gets present velocity of all servos
@@ -1326,7 +1344,7 @@ void InterbotixDriverXS::read_joint_states()
         &log))
     {
       XSLOG_ERROR("Failed getSyncReadData for Present_Velocity: %s", log);
-      syncread_failed = true;
+      read_failed = true;
     }
 
     // Gets present position of all servos
@@ -1340,27 +1358,14 @@ void InterbotixDriverXS::read_joint_states()
         &log))
     {
       XSLOG_ERROR("Failed getSyncReadData for Present_Position: %s", log);
-      syncread_failed = true;
-    }
-
-    // If syncread failed, check to see what motors we can actually read from. This will provide
-    // some additional troubleshooting information on what motors may have been disconnected or are
-    // unresponsive
-    if (syncread_failed) {
-      for (const auto id : all_ptr->joint_ids) {
-        int32_t value = 0;
-        // Try to read from an item available on all motor models
-        if (!dxl_wb.itemRead(id, "ID", &value)) {
-          XSLOG_ERROR("Failed to read from DYNAMIXEL ID: %d", id);
-        }
-      }
+      read_failed = true;
     }
 
     uint8_t index = 0;
     for (auto const & id : all_ptr->joint_ids) {
-      float position = 0;
-      float velocity = 0;
-      float effort = 0;
+      float position = 0.0;
+      float velocity = 0.0;
+      float effort = 0.0;
 
       if (strcmp(dxl_wb.getModelName(id), "XL-320") == 0) {
         effort = dxl_wb.convertValue2Load(get_current.at(index));
@@ -1388,7 +1393,8 @@ void InterbotixDriverXS::read_joint_states()
           get_all_data.data(),
           &log))
       {
-        XSLOG_ERROR("%s", log);
+        XSLOG_ERROR("Failed readRegister for joint states: %s", log);
+        read_failed = true;
       }
 
       int16_t effort_raw = DXL_MAKEWORD(get_all_data.at(4), get_all_data.at(5));
@@ -1403,6 +1409,31 @@ void InterbotixDriverXS::read_joint_states()
       robot_efforts.push_back(effort);
       robot_velocities.push_back(velocity);
       robot_positions.push_back(position);
+    }
+  }
+
+  // If read failed, check to see what motors we can actually read from. This will provide
+  // some additional troubleshooting information on what motors may have been disconnected or are
+  // unresponsive
+  if (read_failed) {
+    // Note that this process is slow and dramatically reduces the joint state pub frequency
+    // However, we are in a failure state so performance does not matter
+    for (const auto id : all_ptr->joint_ids) {
+      int32_t value = 0;
+      // Try to read from an item available on all motor models
+      if (!dxl_wb.itemRead(id, "ID", &value)) {
+        // Log the motor IDs we can't read from
+        XSLOG_ERROR("[xs_sdk] Failed to read from DYNAMIXEL ID: %d", id);
+      }
+    }
+    // If read failed and SDK is configured to publish NaNs, fill the joint state message with NaNs
+    if (read_failure_behavior == ReadFailureBehavior::PUB_NAN) {
+      const auto nan_states = std::vector<float>(
+        robot_positions.size(),
+        std::numeric_limits<float>::quiet_NaN());
+      robot_positions = std::vector<float>(nan_states);
+      robot_velocities = std::vector<float>(nan_states);
+      robot_efforts = std::vector<float>(nan_states);
     }
   }
 }

@@ -170,10 +170,6 @@ bool InterbotixDriverXS::set_joint_operating_mode(
         motor_map[motor_name].motor_id,
         "Drive_Mode",
         drive_mode_bitset_write.to_ulong());
-      for (auto const & joint_name : sister_map[name]) {
-        dxl_wb.torque(motor_map[joint_name].motor_id, true);
-        XSLOG_DEBUG("ID: %d, torqued on.", motor_map[joint_name].motor_id);
-      }
       XSLOG_DEBUG(
         "ID: %d, write Drive_Mode [%s].",
         motor_map[motor_name].motor_id, drive_mode_bitset_write.to_string().c_str());
@@ -187,10 +183,6 @@ bool InterbotixDriverXS::set_joint_operating_mode(
         motor_map[motor_name].motor_id,
         "Drive_Mode",
         drive_mode_bitset_write.to_ulong());
-      for (auto const & joint_name : sister_map[name]) {
-        dxl_wb.torque(motor_map[joint_name].motor_id, true);
-        XSLOG_DEBUG("ID: %d, torqued on.", motor_map[joint_name].motor_id);
-      }
       XSLOG_DEBUG(
         "ID: %d, write Drive_Mode [%s].",
         motor_map[motor_name].motor_id, drive_mode_bitset_write.to_string().c_str());
@@ -210,10 +202,6 @@ bool InterbotixDriverXS::set_joint_operating_mode(
           XSLOG_DEBUG("ID: %d, torqued off.", motor_map[joint_name].motor_id);
         }
         dxl_wb.setPositionControlMode(motor_map[motor_name].motor_id);
-        for (auto const & joint_name : sister_map[name]) {
-          dxl_wb.torque(motor_map[joint_name].motor_id, true);
-          XSLOG_DEBUG("ID: %d, torqued on.", motor_map[joint_name].motor_id);
-        }
       } else {
         XSLOG_DEBUG(
           "ID: %d, skipping set mode position.",
@@ -240,10 +228,6 @@ bool InterbotixDriverXS::set_joint_operating_mode(
           XSLOG_DEBUG("ID: %d, torqued off.", motor_map[joint_name].motor_id);
         }
         dxl_wb.setExtendedPositionControlMode(motor_map[motor_name].motor_id);
-        for (auto const & joint_name : sister_map[name]) {
-          dxl_wb.torque(motor_map[joint_name].motor_id, true);
-          XSLOG_DEBUG("ID: %d, torqued on.", motor_map[joint_name].motor_id);
-        }
       } else {
         XSLOG_DEBUG(
           "ID: %d, skipping set mode ext_position.",
@@ -268,10 +252,6 @@ bool InterbotixDriverXS::set_joint_operating_mode(
           XSLOG_DEBUG("ID: %d, torqued off.", motor_map[joint_name].motor_id);
         }
         dxl_wb.setVelocityControlMode(motor_map[motor_name].motor_id);
-        for (auto const & joint_name : sister_map[name]) {
-          dxl_wb.torque(motor_map[joint_name].motor_id, true);
-          XSLOG_DEBUG("ID: %d, torqued on.", motor_map[joint_name].motor_id);
-        }
       } else {
         XSLOG_DEBUG(
           "ID: %d, skipping set mode velocity.",
@@ -293,10 +273,6 @@ bool InterbotixDriverXS::set_joint_operating_mode(
           XSLOG_DEBUG("ID: %d, torqued off.", motor_map[joint_name].motor_id);
         }
         dxl_wb.setPWMControlMode(motor_map[motor_name].motor_id);
-        for (auto const & joint_name : sister_map[name]) {
-          dxl_wb.torque(motor_map[joint_name].motor_id, true);
-          XSLOG_DEBUG("ID: %d, torqued on.", motor_map[joint_name].motor_id);
-        }
       } else {
         XSLOG_DEBUG(
           "ID: %d, skipping set mode pwm.",
@@ -313,10 +289,6 @@ bool InterbotixDriverXS::set_joint_operating_mode(
           XSLOG_DEBUG("ID: %d, torqued off.", motor_map[joint_name].motor_id);
         }
         dxl_wb.setCurrentControlMode(motor_map[motor_name].motor_id);
-        for (auto const & joint_name : sister_map[name]) {
-          dxl_wb.torque(motor_map[joint_name].motor_id, true);
-          XSLOG_DEBUG("ID: %d, torqued on.", motor_map[joint_name].motor_id);
-        }
       } else {
         XSLOG_DEBUG(
           "ID: %d, skipping set mode current.",
@@ -334,10 +306,6 @@ bool InterbotixDriverXS::set_joint_operating_mode(
           XSLOG_DEBUG("ID: %d, torqued off.", motor_map[joint_name].motor_id);
         }
         dxl_wb.setCurrentBasedPositionControlMode(motor_map[motor_name].motor_id);
-        for (auto const & joint_name : sister_map[name]) {
-          dxl_wb.torque(motor_map[joint_name].motor_id, true);
-          XSLOG_DEBUG("ID: %d, torqued on.", motor_map[joint_name].motor_id);
-        }
       }
       XSLOG_DEBUG(
         "ID: %d, set mode current_based_position.",
@@ -356,7 +324,7 @@ bool InterbotixDriverXS::set_joint_operating_mode(
     motor_map[motor_name].profile_acceleration = profile_acceleration;
   }
 
-  // torque on all servos for good measure
+  // torque motors back on
   for (auto const & joint_name : sister_map[name]) {
     dxl_wb.torque(motor_map[joint_name].motor_id, true);
     XSLOG_DEBUG(

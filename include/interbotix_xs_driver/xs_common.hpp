@@ -87,11 +87,18 @@ namespace mode
 // Constants for operating modes
 inline static const std::string PWM = "pwm";
 inline static const std::string POSITION = "position";
-inline static const std::string EXT_POSITION = "ext_postition";
+inline static const std::string EXT_POSITION = "ext_position";
 inline static const std::string CURRENT_BASED_POSITION = "current_based_position";
 inline static const std::string LINEAR_POSITION = "linear_position";
 inline static const std::string VELOCITY = "velocity";
 inline static const std::string CURRENT = "current";
+
+inline static const int MODE_PWM = 16;
+inline static const int MODE_POSITION = 3;
+inline static const int MODE_EXT_POSITION = 4;
+inline static const int MODE_CURRENT_BASED_POSITION = 5;
+inline static const int MODE_VELOCITY = 1;
+inline static const int MODE_CURRENT = 0;
 
 }  // namespace mode
 

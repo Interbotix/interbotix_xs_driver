@@ -234,7 +234,8 @@ bool InterbotixDriverXS::set_joint_operating_mode(
           motor_map[motor_name].motor_id);
       }
       // set prof_acc and prof_vel
-      dxl_wb.itemWrite(motor_map[motor_name].motor_id,
+      dxl_wb.itemWrite(
+        motor_map[motor_name].motor_id,
         "Profile_Velocity",
         profile_velocity);
       dxl_wb.itemWrite(

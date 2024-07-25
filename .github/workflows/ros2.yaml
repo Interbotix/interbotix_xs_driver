@@ -20,13 +20,13 @@ jobs:
     strategy:
       matrix:
         env:
-          - {ROS_DISTRO: galactic, ROS_REPO: main}
-          - {ROS_DISTRO: humble, ROS_REPO: main}
-          - {ROS_DISTRO: iron, ROS_REPO: main}
-          - {ROS_DISTRO: jazzy, ROS_REPO: main}
-          - {ROS_DISTRO: rolling, ROS_REPO: main}
+          - {ROS_DISTRO: galactic, RUNNER: ubuntu-20.04}
+          - {ROS_DISTRO: humble, RUNNER: ubuntu-22.04}
+          - {ROS_DISTRO: iron, RUNNER: ubuntu-22.04}
+          - {ROS_DISTRO: jazzy, RUNNER: ubuntu-24.04}
+          - {ROS_DISTRO: rolling, RUNNER: ubuntu-24.04}
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.env.RUNNER }}
     steps:
       - name: Check out X-Series Driver
         uses: actions/checkout@v4

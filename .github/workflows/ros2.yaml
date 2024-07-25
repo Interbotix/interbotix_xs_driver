@@ -20,7 +20,6 @@ jobs:
     strategy:
       matrix:
         env:
-          - {ROS_DISTRO: galactic, RUNNER: ubuntu-20.04}
           - {ROS_DISTRO: humble, RUNNER: ubuntu-22.04}
           - {ROS_DISTRO: iron, RUNNER: ubuntu-22.04}
           - {ROS_DISTRO: jazzy, RUNNER: ubuntu-24.04}

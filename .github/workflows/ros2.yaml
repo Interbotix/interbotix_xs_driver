@@ -22,18 +22,19 @@ jobs:
         env:
           - {ROS_DISTRO: galactic, ROS_REPO: main}
           - {ROS_DISTRO: humble, ROS_REPO: main}
+          - {ROS_DISTRO: iron, ROS_REPO: main}
+          - {ROS_DISTRO: jazzy, ROS_REPO: main}
           - {ROS_DISTRO: rolling, ROS_REPO: main}
+
     runs-on: ubuntu-latest
     steps:
       - name: Check out X-Series Driver
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+      - uses: ros-tooling/setup-ros@v0.7
         with:
-          path: src
-      - name: Check out DYNAMIXEL Workbench Toolbox
-        uses: actions/checkout@v3
+          use-ros2-testing: true
+          required-ros-distributions: ${{ matrix.env.ROS_DISTRO }}
+      - uses: ros-tooling/action-ros-ci@v0.3
         with:
-          repository: Interbotix/dynamixel-workbench
-          ref: ros2
-          path: src
-      - uses: 'ros-industrial/industrial_ci@master'
-        env: ${{matrix.env}}
+          target-ros2-distro: ${{ matrix.env.ROS_DISTRO }}
+          vcs-repo-file-url: dependencies.repos

@@ -82,15 +82,13 @@ void log(logging::Level level, const char * fmt, ...)
         break;
     }
 
-    using namespace std::chrono;
-
-    auto time_now = system_clock::now().time_since_epoch();
-    auto time_s = duration_cast<seconds>(time_now);
+    auto time_now = std::chrono::system_clock::now().time_since_epoch();
+    auto time_s = std::chrono::duration_cast<std::chrono::seconds>(time_now);
     msg = msg
       + " ["
       + std::to_string(time_s.count())  // seconds
       + "."
-      + std::to_string((time_now - time_s).count())  // get nanoseconds
+      + std::to_string((time_now - time_s).count())  // nanoseconds
       + "] ";
 
     va_list args;

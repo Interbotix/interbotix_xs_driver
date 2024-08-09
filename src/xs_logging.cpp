@@ -31,13 +31,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <memory>
+#include <chrono>
 #include <cstdarg>
 #include <cstdio>
+#include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <iostream>
 
 
 namespace interbotix_xs
@@ -80,6 +81,17 @@ void log(logging::Level level, const char * fmt, ...)
       default:
         break;
     }
+
+    using namespace std::chrono;
+
+    auto time_now = system_clock::now().time_since_epoch();
+    auto time_s = duration_cast<seconds>(time_now);
+    msg = msg
+      + " ["
+      + std::to_string(time_s.count())  // seconds
+      + "."
+      + std::to_string((time_now - time_s).count())  // get nanoseconds
+      + "] ";
 
     va_list args;
     va_start(args, fmt);

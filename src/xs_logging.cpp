@@ -85,10 +85,10 @@ void log(logging::Level level, const char * fmt, ...)
     auto duration = std::chrono::system_clock::now().time_since_epoch();
     double seconds = std::chrono::duration<double>(duration).count();
 
-    msg = msg
-      + " ["
-      + std::to_string(seconds)
-      + "] ";
+    msg = msg +
+      " [" +
+      std::to_string(seconds) +
+      "] ";
 
     va_list args;
     va_start(args, fmt);

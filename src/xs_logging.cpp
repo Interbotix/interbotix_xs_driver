@@ -55,65 +55,67 @@ namespace logging
 
 void log(logging::Level level, const char * fmt, ...)
 {
-  std::string msg = "";
-  if (level >= _level) {
-    switch (level) {
-      case Level::DEBUG:
-        msg += GRN;
-        msg += "[DEBUG] ";
-        break;
-      case Level::INFO:
-        msg += OFF;
-        msg += "[INFO] ";
-        break;
-      case Level::WARN:
-        msg += YLW;
-        msg += "[WARN] ";
-        break;
-      case Level::ERROR:
-        msg += RED;
-        msg += "[ERROR] ";
-        break;
-      case Level::FATAL:
-        msg += RED;
-        msg += "[FATAL] ";
-        break;
-      default:
-        break;
-    }
-
-    auto duration = std::chrono::system_clock::now().time_since_epoch();
-    double seconds = std::chrono::duration<double>(duration).count();
-
-    msg = msg +
-      " [" +
-      std::to_string(seconds) +
-      "] ";
-
-    va_list args;
-    va_start(args, fmt);
-    size_t size = 1024;
-    std::vector<char> dynamicbuf(size);
-    char * buf = &dynamicbuf[0];
-
-    va_list argsTmp;
-
-    while (1) {
-      va_copy(argsTmp, args);
-      int needed = vsnprintf(buf, size, fmt, argsTmp);
-      va_end(argsTmp);
-      if (needed < static_cast<int>(size) - 1 && needed >= 0) {
-        msg.append(buf, static_cast<size_t>(needed));
-        break;
-      }
-      size = needed >= 0 ? needed + 2 : size * 2;
-      dynamicbuf.resize(size);
-      buf = &dynamicbuf[0];
-    }
-    va_end(args);
-    msg.append(END);
-    std::cerr << msg.c_str();
+  if (level < _level) {
+    return;
   }
+
+  std::string msg = "";
+  switch (level) {
+    case Level::DEBUG:
+      msg += GRN;
+      msg += "[DEBUG] ";
+      break;
+    case Level::INFO:
+      msg += OFF;
+      msg += "[INFO] ";
+      break;
+    case Level::WARN:
+      msg += YLW;
+      msg += "[WARN] ";
+      break;
+    case Level::ERROR:
+      msg += RED;
+      msg += "[ERROR] ";
+      break;
+    case Level::FATAL:
+      msg += RED;
+      msg += "[FATAL] ";
+      break;
+    default:
+      break;
+  }
+
+  auto duration = std::chrono::system_clock::now().time_since_epoch();
+  double seconds = std::chrono::duration<double>(duration).count();
+
+  msg = msg +
+    "[" +
+    std::to_string(seconds) +
+    "] ";
+
+  va_list args;
+  va_start(args, fmt);
+  size_t size = 1024;
+  std::vector<char> dynamicbuf(size);
+  char * buf = &dynamicbuf[0];
+
+  va_list argsTmp;
+
+  while (1) {
+    va_copy(argsTmp, args);
+    int needed = vsnprintf(buf, size, fmt, argsTmp);
+    va_end(argsTmp);
+    if (needed < static_cast<int>(size) - 1 && needed >= 0) {
+      msg.append(buf, static_cast<size_t>(needed));
+      break;
+    }
+    size = needed >= 0 ? needed + 2 : size * 2;
+    dynamicbuf.resize(size);
+    buf = &dynamicbuf[0];
+  }
+  va_end(args);
+  msg.append(END);
+  std::cerr << msg.c_str();
 }
 
 void set_level(Level level)
